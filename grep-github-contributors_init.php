@@ -38,6 +38,8 @@ function GrepGithubContributors_init($file) {
         $aPlugin->upgrade();
     }
 
+    
+
     // Add callbacks to hooks
     $aPlugin->addActionsAndFilters();
 
@@ -50,4 +52,8 @@ function GrepGithubContributors_init($file) {
 
     // Register the Plugin Deactivation Hook
     register_deactivation_hook($file, array(&$aPlugin, 'deactivate'));
+
+    
 }
+
+
