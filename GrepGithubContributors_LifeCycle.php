@@ -107,6 +107,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherInstall() {
+        $this->updateOption('last_fetched', time() - 3601);
     }
 
     /**
@@ -115,6 +116,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherUninstall() {
+        delete_option( 'last_fetched' ); 
     }
 
     /**

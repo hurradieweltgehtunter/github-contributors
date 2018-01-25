@@ -13,9 +13,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         //  http://plugin.michael-simpson.com/?page_id=31
         return array(
             //'_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
-            'ATextInput' => array(__('Enter in some text', 'my-awesome-plugin')),
-            'AmAwesome' => array(__('I like this awesome plugin', 'my-awesome-plugin'), 'false', 'true'),
-            'CanDoSomething' => array(__('Which user role can do something', 'my-awesome-plugin'),
+            'github-client-id' => array(__('Github Client ID', 'grep-github-contributors')),
+            'github-client-secret' => array(__('Github Client secret', 'grep-github-contributors')),
+            'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
                                         'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone')
         );
     }
@@ -164,59 +164,46 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function doGetContributors() {
+    echo '->' . $this->getOption('last_fetched');
+    if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
+      echo 'time not exceeded';
+      return false;
+    }
+
     require_once __DIR__ . '/vendor/autoload.php';
 
     $client = new \Github\Client();
+    $client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
 
-
-    
-
-    // $organizationApi = $client->api('organization');
-
-    // $paginator  = new Github\ResultPager($client);
-    // $parameters = array('owncloud');
-    // $members     = $paginator->fetchAll($organizationApi, 'members', $parameters);
     $members = $client->api('organizations')->members()->all('owncloud');
-
     $pagination = ResponseMediator::getPagination($client->getLastResponse());
-    $count = 0;
+
     while(isset($pagination['next'])) {
       $page = substr($pagination['next'], strpos($pagination['next'], 'page=') + 5);
+      if (strpos($page, '&') > 0)
+        $page = substr($page, 0, strpos($page, '&'));
+
       $delta = $client->api('organizations')->members()->all('owncloud', null, 'all', null, $page);
+
+      $pagination = ResponseMediator::getPagination($client->getLastResponse());
 
       $temp = array_merge($members, $delta);
       $temp = $members;
 
-      $count++;
-      if($count > 5) {
-        break;
-      }
     }
 
-    echo '<pre>';
-    print_r( $members );
-    echo '</pre>';
-    exit();
     $count = 0;
     foreach($members as $member) {
+
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
       if (null === $e) {
         // contributor is not found
-        echo $member['login'] . ' not in DB<br />';
-
-        $user = $client->api('user')->show('DeepDiver1975'); //$member['login']);
-        
-        
-        if ($user['name'] !== '') {
-          $name = $user['name'];
-        } else {
-          $name = $user['login'];
-        }
+        $user = $client->api('user')->show($member['login']);
 
         $id = wp_insert_post(array(
           'post_excerpt' => $user['bio'] . ' ',
-          'post_title' => $name,
+          'post_title' => $user['login'],
           'post_status' => 'publish',
           'post_type' => 'contributor',
           'comment_status' => 'closed',
@@ -225,19 +212,15 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github' => $user['html_url'],
             'location' => $user['location'],
             'avatar' => $user['avatar_url'],
-            'visible' => 1
+            'visible' => 1,
+            'name' => $user['name'],
+            'last_activity_fetch' => 0
           )
         ));
-      }  
-
-      break;
+      }
     }
 
-    
-
-    $client = new \Github\Client();
-    $repositories = $client->api('organizations')->members()->all('owncloud');
-
+    $this->updateOption(time());
 
 
     // $repositories = $client->api('user')->show('brantje');
@@ -253,6 +236,78 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     // echo '</pre>';
     // return 'Hello Word!123';
   }
+
+  function getUserActivity($username) {
+      $response = $client->getHttpClient()->get('/users/hurradieweltgehtunter/events/public');
+      $events   = Github\HttpClient\Message\ResponseMediator::getContent($response);
+
+      $content = '';
+      $rest = array();
+
+      foreach($events as $key=>$e) {
+        $date = date('Y-m-d', strtotime($e['created_at']));
+
+        switch($e['type']) {
+          case 'PushEvent':
+            $url = str_replace('https://api.github.com', '', $e['payload']['commits'][0]['url']);
+            $response = $client->getHttpClient()->get($url);
+            $commit     = Github\HttpClient\Message\ResponseMediator::getContent($response);
+
+            $text = '<li>' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">user pushed to repository ' . $e['repo']['name'] . '</a></li>';
+            
+            break;
+
+          case 'CreateEvent':
+            $url = str_replace('https://api.github.com', '', $e['repo']['url']);
+            $response = $client->getHttpClient()->get($url);
+            $entity     = Github\HttpClient\Message\ResponseMediator::getContent($response);
+
+            $text = '<li>' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">user created ' . $e['payload']['ref_type'] . ' ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'IssueCommentEvent':
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user commented on issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'IssuesEvent':
+            switch($e['payload']['action']) {
+              case 'opened':
+              case 'edited':
+              case 'closed':
+              case 'reopened':
+                $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+                break;
+            }
+            
+            break;
+
+          case 'CommitCommentEvent':
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'PullRequestEvent':
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['pull_request']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' pull request #' . $e['payload']['pull_request']['number'] . ' "' . $e['payload']['pull_request']['title'] . '" in ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'DeleteEvent':
+            // deleted branch or tag
+            break;
+
+          default:
+            $rest[] = $e;
+            break;
+        }
+
+        $content .= $text;
+
+      }
+
+      echo '<ul>' . $content . '</ul>';
+      echo '<pre>';
+      print_r( $rest );
+      echo '</pre>';
+      exit();
+    }
 }
 
 
