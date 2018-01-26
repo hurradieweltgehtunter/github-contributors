@@ -1,5 +1,7 @@
 A wordpress plugin to fetch github user activity in an organization
 
+GitHub Events documentation: https://developer.github.com/v3/activity/events/
+
 ## ToDo's
 - [] make organization editable in option field
 - [] create the output via shortcode; weight user on oc index
@@ -8,3 +10,4 @@ A wordpress plugin to fetch github user activity in an organization
 - [] handle non-existing users in activity fetching
 - [] remove users who left the organziation
 - [] provide a clean plugin submenu in backend
+
