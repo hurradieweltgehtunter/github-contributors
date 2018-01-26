@@ -53,12 +53,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
      * @return void
      */
     protected function installDatabaseTables() {
-                global $wpdb;
-                $tableName = $this->prefixTableName('oc-contributors');
-                $wpdb->query("CREATE TABLE IF NOT EXISTS `$tableName` (
-                    `id` INTEGER NOT NULL
-                    ``
-                    ");
+                // global $wpdb;
+                // $tableName = $this->prefixTableName('oc-contributors');
+                // $wpdb->query("CREATE TABLE IF NOT EXISTS `$tableName` (
+                //     `id` INTEGER NOT NULL
+                //     ``
+                //     ");
     }
 
     /**
@@ -67,9 +67,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
      * @return void
      */
     protected function unInstallDatabaseTables() {
-                global $wpdb;
-                $tableName = $this->prefixTableName('oc-contributors');
-                $wpdb->query("DROP TABLE IF EXISTS `$tableName`");
+                // global $wpdb;
+                // $tableName = $this->prefixTableName('oc-contributors');
+                // $wpdb->query("DROP TABLE IF EXISTS `$tableName`");
     }
 
 
@@ -106,10 +106,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         //        wp_enqueue_style('my-style', plugins_url('/css/my-style.css', __FILE__));
         //        wp_enqueue_script('my-script', plugins_url('/js/my-script.js', __FILE__));
 
+        // Add Cronjobs
+        add_action('grep-github-contributors-get-members', array($this, 'doGetContributors'));
+        add_action('grep-github-contributors-get-member-activity', array($this, 'getUserActivities'));
+        
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
-        add_shortcode('get-contributors', array($this, 'doGetContributors'));
+        add_shortcode('get-contributors', array($this, 'getUserActivities'));
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
@@ -164,9 +168,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function doGetContributors() {
-    echo '->' . $this->getOption('last_fetched');
     if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
-      echo 'time not exceeded';
       return false;
     }
 
@@ -185,11 +187,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       $delta = $client->api('organizations')->members()->all('owncloud', null, 'all', null, $page);
 
+
+
       $pagination = ResponseMediator::getPagination($client->getLastResponse());
 
       $temp = array_merge($members, $delta);
-      $temp = $members;
-
+      $members = $temp;
     }
 
     $count = 0;
@@ -214,59 +217,91 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'avatar' => $user['avatar_url'],
             'visible' => 1,
             'name' => $user['name'],
-            'last_activity_fetch' => 0
+            'last_activity_fetch' => 0,
+            'oc-index' => '',
+            'nc-index' => ''
           )
         ));
       }
     }
 
-    $this->updateOption(time());
-
-
-    // $repositories = $client->api('user')->show('brantje');
-
-    // $client   = new Github\Client();
-    // $response = $client->getHttpClient()->get('/users/hurradieweltgehtunter/events?q=type:CommitComment');
-    // $response = $client->getHttpClient()->get('/orgs/owncloud/events');
-
-    // $events     = Github\HttpClient\Message\ResponseMediator::getContent($response);
-
-    // echo '<pre>';
-    // print_r( $events );
-    // echo '</pre>';
-    // return 'Hello Word!123';
+    $this->updateOption('last_fetched', time());
   }
 
-  function getUserActivity($username) {
-      $response = $client->getHttpClient()->get('/users/hurradieweltgehtunter/events/public');
-      $events   = Github\HttpClient\Message\ResponseMediator::getContent($response);
+  public function getUserActivities() {
+    require_once __DIR__ . '/vendor/autoload.php';
 
-      $content = '';
-      $rest = array();
+    $this->client = new \Github\Client();
+    $this->client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
 
-      foreach($events as $key=>$e) {
-        $date = date('Y-m-d', strtotime($e['created_at']));
+    $args = array(
+      'post_type' => 'contributor',
+      'posts_per_page' => 10,
+      'meta_query' => array(
+        array(
+          'key'     => 'last_activity_fetch',
+          'value'   => time() - 3600,
+          'compare' => '<',
+        ),
+      )
+    );
+    $the_query = new WP_Query( $args );
 
+    if ( $the_query->have_posts() ) {
+      while ( $the_query->have_posts() ) {
+        $the_query->the_post();
+        echo '->' . get_the_title();
+        $githubActivity = $this->doGetUserActivity(get_the_title());
+
+        $user = array(
+          'ID'           => get_the_ID(),
+          'post_content' => $githubActivity
+        );
+
+        wp_update_post( $user );
+        update_post_meta( get_the_ID(), 'last_activity_fetch', time());
+
+        $this->calcUserStats(get_the_ID(), $githubActivity);
+        exit();
+      }
+      wp_reset_postdata();
+    }
+  }
+
+  function doGetUserActivity($username) {
+    $response = $this->client->getHttpClient()->get('/users/' . $username . '/events/public');
+    $events   = Github\HttpClient\Message\ResponseMediator::getContent($response);
+
+    $content = '';
+    $rest = array();
+    $text = '';
+
+    foreach($events as $key=>$e) {
+      $date = date('Y-m-d', strtotime($e['created_at'])) . ': ';
+
+      try {
+        // github events: https://developer.github.com/v3/activity/events/types
         switch($e['type']) {
           case 'PushEvent':
-            $url = str_replace('https://api.github.com', '', $e['payload']['commits'][0]['url']);
-            $response = $client->getHttpClient()->get($url);
-            $commit     = Github\HttpClient\Message\ResponseMediator::getContent($response);
+            if (count($e['payload']['commits']) > 0) {
+              $url = str_replace('https://api.github.com', '', $e['payload']['commits'][0]['url']);
+              $response = $this->client->getHttpClient()->get($url);
+              $commit     = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
-            $text = '<li>' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">user pushed to repository ' . $e['repo']['name'] . '</a></li>';
-            
+              $text = '<li>' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">' . $username . ' pushed to repository ' . $e['repo']['name'] . '</a></li>';  
+            }
             break;
 
           case 'CreateEvent':
             $url = str_replace('https://api.github.com', '', $e['repo']['url']);
-            $response = $client->getHttpClient()->get($url);
+            $response = $this->client->getHttpClient()->get($url);
             $entity     = Github\HttpClient\Message\ResponseMediator::getContent($response);
-
-            $text = '<li>' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">user created ' . $e['payload']['ref_type'] . ' ' . $e['repo']['name'] . '</a></li>';
+            
+            $text = '<li>' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">' . $username . ' created a ' . $e['payload']['ref_type'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'IssueCommentEvent':
-            $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user commented on issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' commented on issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'IssuesEvent':
@@ -275,22 +310,40 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
               case 'edited':
               case 'closed':
               case 'reopened':
-                $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+                $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
                 break;
             }
             
             break;
 
           case 'CommitCommentEvent':
-            $text = '<li>' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented on a commit in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'PullRequestEvent':
-            $text = '<li>' . $date . ' <a href="' . $e['payload']['pull_request']['html_url'] . '" target="blank">user ' . $e['payload']['action'] . ' pull request #' . $e['payload']['pull_request']['number'] . ' "' . $e['payload']['pull_request']['title'] . '" in ' . $e['repo']['name'] . '</a></li>';
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['pull_request']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' pull request #' . $e['payload']['pull_request']['number'] . ' "' . $e['payload']['pull_request']['title'] . '" in ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'WatchEvent':
+            $text = '<li>' . $date . ' <a href="https://github.com/' . $e['repo']['name'] . '" target="blank">' . $username . ' starred repository ' . $e['repo']['name'] . '</a></li>';
+            break;
+
+          case 'ForkEvent':
+            // User forked a repo
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['forkee']['html_url'] . '" target="blank">' . $username . ' forked repository ' . $e['repo']['name'] . ' into ' . $e['payload']['forkee']['name'] . '</a></li>';
+            break;
+
+          case 'PullRequestReviewCommentEvent':
+            // User commented on a pull request
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented a diff in pull request #' . $e['payload']['pull_request']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'DeleteEvent':
             // deleted branch or tag
+            break;
+
+          case 'ReleaseEvent':
+            $text = '<li>' . $date . ' <a href="' . $e['payload']['release']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' release ' . $e['payload']['release']['tag_name'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           default:
@@ -299,15 +352,31 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         }
 
         $content .= $text;
+      } catch (Exception $e) {
 
       }
-
-      echo '<ul>' . $content . '</ul>';
-      echo '<pre>';
-      print_r( $rest );
-      echo '</pre>';
-      exit();
     }
+
+    // do sth. with $rest = uncatched events
+
+    return $content;
+  }
+
+  public function calcUserStats($postId, $githubActivity) {
+    $word_count = explode(' ', $githubActivity);
+    $word_count = count($word_count);
+
+    $oc_index = number_format((substr_count(strtolower($githubActivity), 'owncloud') / $word_count * 100), 2);
+    $nc_index = number_format((substr_count(strtolower($githubActivity), 'nextcloud') / $word_count * 100), 2);
+
+    update_post_meta( $postId, 'oc-index', $oc_index);
+    update_post_meta( $postId, 'nc-index', $nc_index);
+
+  }
+
+  public function doCron() {
+    $this->doGetContributors();
+  }
 }
 
 

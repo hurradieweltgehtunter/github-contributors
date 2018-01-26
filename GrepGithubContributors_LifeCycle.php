@@ -62,7 +62,17 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     public function activate() {
+        // setup cronjobs
+        if( !wp_next_scheduled( 'grep-github-contributors-get-members' ) ) {  
+           wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-members' );
+        }
 
+        if( !wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {  
+           wp_schedule_event( time(), 'hourly', 'grep-github-contributors-get-member-activity' );
+        }
+
+        // how often github should be crawled
+        $this->updateOption('last_fetched', time() - 3601);
     }
 
     /**
@@ -70,6 +80,10 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     public function deactivate() {
+        delete_option( 'last_fetched' ); 
+
+        wp_clear_scheduled_hook('grep-github-contributors-get-members');
+        wp_clear_scheduled_hook('grep-github-contributors-get-member-activity');
     }
 
     /**
@@ -107,7 +121,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherInstall() {
-        $this->updateOption('last_fetched', time() - 3601);
+        
     }
 
     /**
@@ -116,7 +130,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherUninstall() {
-        delete_option( 'last_fetched' ); 
+        
     }
 
     /**

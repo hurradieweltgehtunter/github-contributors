@@ -24,6 +24,7 @@ class Members extends AbstractApi
             }
 
             if (null !== $page) {
+                echo $page . '<br />';
                 $this->page = $page;
                 $parameters['page'] = $page;
             }
