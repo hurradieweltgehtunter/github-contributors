@@ -12,9 +12,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     public function getOptionMetaData() {
         //  http://plugin.michael-simpson.com/?page_id=31
         return array(
-            //'_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
-            'github-client-id' => array(__('Github Client ID', 'grep-github-contributors')),
-            'github-client-secret' => array(__('Github Client secret', 'grep-github-contributors')),
+            '_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
+            'github-client-id' => array(__('GitHub Client ID', 'grep-github-contributors')),
+            'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
+            'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
             'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
                                         'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone')
         );
@@ -113,7 +114,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
-        add_shortcode('get-contributors', array($this, 'getUserActivities'));
+        add_shortcode('get-contributors', array($this, 'doGetContributors'));
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
@@ -177,7 +178,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $client = new \Github\Client();
     $client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
 
-    $members = $client->api('organizations')->members()->all('owncloud');
+    $members = $client->api('organizations')->members()->all($this->getOption('github-organization'));
     $pagination = ResponseMediator::getPagination($client->getLastResponse());
 
     while(isset($pagination['next'])) {
@@ -185,7 +186,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       if (strpos($page, '&') > 0)
         $page = substr($page, 0, strpos($page, '&'));
 
-      $delta = $client->api('organizations')->members()->all('owncloud', null, 'all', null, $page);
+      $delta = $client->api('organizations')->members()->all($this->getOption('github-organization'), null, 'all', null, $page);
 
 
 
