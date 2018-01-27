@@ -108,13 +108,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         //        wp_enqueue_script('my-script', plugins_url('/js/my-script.js', __FILE__));
 
         // Add Cronjobs
-        add_action('grep-github-contributors-get-members', array($this, 'doGetContributors'));
+        add_action('grep-github-contributors-get-members', array($this, 'startBaseJob'));
         add_action('grep-github-contributors-get-member-activity', array($this, 'getUserActivities'));
         
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
-        add_shortcode('get-contributors', array($this, 'doGetContributors'));
+        add_shortcode('get-contributors', array($this, 'startBaseJob'));
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
@@ -166,6 +166,32 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
        
       // Registering your Custom Post Type
       register_post_type( 'contributor', $args );
+  }
+
+  public function startBaseJob() {
+    // delete users who didn't get updated for at least 2 days (=> left the organization)
+    $args = array(
+      'post_type' => 'contributor',
+      'date_query' => array(
+        array(
+          'column' => 'post_modified_gmt',
+          'before' => '2 days ago',
+        ),
+      ),
+      'posts_per_page' => -1
+    );
+
+    $query = new WP_Query( $args );
+    if ( $query->have_posts() ) {
+      while ( $query->have_posts() ) {
+        $query->the_post();
+        echo wp_delete_post( get_the_ID(), true );
+      }
+    }
+
+
+
+    // doGetContributors();
   }
 
   public function doGetContributors() {
@@ -263,7 +289,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         update_post_meta( get_the_ID(), 'last_activity_fetch', time());
 
         $this->calcUserStats(get_the_ID(), $githubActivity);
-        exit();
       }
       wp_reset_postdata();
     }
