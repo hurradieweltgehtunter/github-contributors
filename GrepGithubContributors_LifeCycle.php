@@ -73,6 +73,8 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
 
         // how often github should be crawled
         $this->updateOption('last_fetched', time() - 3601);
+
+         flush_rewrite_rules();
     }
 
     /**
@@ -84,6 +86,8 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
 
         wp_clear_scheduled_hook('grep-github-contributors-get-members');
         wp_clear_scheduled_hook('grep-github-contributors-get-member-activity');
+
+        flush_rewrite_rules();
     }
 
     /**

@@ -16,6 +16,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github-client-id' => array(__('GitHub Client ID', 'grep-github-contributors')),
             'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
             'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
+            'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
             'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
                                         'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone')
         );
@@ -163,6 +164,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'publicly_queryable'  => true,
           'capability_type'     => 'page',
       );
+
+      if ($this->getOption('post-type-rewrite') !== '') {
+        flush_rewrite_rules();
+        $args['rewrite'] = array('slug' => $this->getOption('post-type-rewrite'));
+      }
        
       // Registering your Custom Post Type
       register_post_type( 'contributor', $args );
