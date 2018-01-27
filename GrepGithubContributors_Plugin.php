@@ -109,12 +109,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Add Cronjobs
         add_action('grep-github-contributors-get-members', array($this, 'startBaseJob'));
-        add_action('grep-github-contributors-get-member-activity', array($this, 'getUserActivities'));
+        add_action('grep-github-contributors-get-member-activity', array($this, 'fetchUsersActivities'));
         
+        add_filter('get-contributors-list', array($this, 'getContributorsList'));
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
-        add_shortcode('get-contributors', array($this, 'doGetContributors'));
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
@@ -189,10 +189,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
-    doGetContributors();
+    fetchContributors();
   }
 
-  public function doGetContributors() {
+  public function fetchContributors() {
     if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
       return false;
     }
@@ -269,7 +269,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->updateOption('last_fetched', time());
   }
 
-  public function getUserActivities() {
+  public function fetchUsersActivities() {
     require_once __DIR__ . '/vendor/autoload.php';
 
     $this->client = new \Github\Client();
@@ -291,8 +291,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     if ( $the_query->have_posts() ) {
       while ( $the_query->have_posts() ) {
         $the_query->the_post();
-        echo '->' . get_the_title();
-        $githubActivity = $this->doGetUserActivity(get_the_title());
+        $githubActivity = $this->fetchUserActivities(get_the_title());
 
         $user = array(
           'ID'           => get_the_ID(),
@@ -308,7 +307,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     }
   }
 
-  function doGetUserActivity($username) {
+  function fetchUserActivities ($username) {
     $response = $this->client->getHttpClient()->get('/users/' . $username . '/events/public');
     $events   = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
@@ -414,8 +413,34 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
   }
 
-  public function doCron() {
-    $this->doGetContributors();
+  public function getContributorsList() {
+    $contributors = array();
+    $args = array(
+      'post_type' => 'contributor',
+      'posts_per_page' => -1
+    );
+    $the_query = new WP_Query( $args );
+
+    if ( $the_query->have_posts() ) {
+      while ( $the_query->have_posts() ) {
+        $the_query->the_post();
+        $metas = get_post_meta(get_the_ID());
+
+        $c = array(
+          'id' => get_the_ID(),
+          'title' => get_the_title(),
+          'excerpt' => get_the_excerpt()
+        );
+
+        foreach($metas as $key=>$value) {
+          $c[$key] = $value[0];
+        }
+
+        $contributors[] = $c;
+      }
+    }
+
+    return $contributors;
   }
 }
 
