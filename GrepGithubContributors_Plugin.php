@@ -114,7 +114,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
-        add_shortcode('get-contributors', array($this, 'startBaseJob'));
+        add_shortcode('get-contributors', array($this, 'doGetContributors'));
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
@@ -189,9 +189,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
-
-
-    // doGetContributors();
+    doGetContributors();
   }
 
   public function doGetContributors() {
@@ -214,8 +212,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       $delta = $client->api('organizations')->members()->all($this->getOption('github-organization'), null, 'all', null, $page);
 
-
-
       $pagination = ResponseMediator::getPagination($client->getLastResponse());
 
       $temp = array_merge($members, $delta);
@@ -226,11 +222,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     foreach($members as $member) {
 
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
-
+      $user = $client->api('user')->show($member['login']);
+      
       if (null === $e) {
-        // contributor is not found
-        $user = $client->api('user')->show($member['login']);
-
+        // contributor is not in DB -> insert
         $id = wp_insert_post(array(
           'post_excerpt' => $user['bio'] . ' ',
           'post_title' => $user['login'],
@@ -242,11 +237,30 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github' => $user['html_url'],
             'location' => $user['location'],
             'avatar' => $user['avatar_url'],
+            'company' => $user['company'] || '',
+            'public_repos' => $user['public_repos'],
+            'public_gists' => $user['public_gists'],
             'visible' => 1,
             'name' => $user['name'],
             'last_activity_fetch' => 0,
             'oc-index' => '',
             'nc-index' => ''
+          )
+        ));
+      } else {
+        // contributor is already in DB -> update
+        wp_update_post(array(
+          'ID' => $e->ID,
+          'post_excerpt' => $user['bio'] . ' ',
+          'meta_input' => array(
+            'blog' => $user['blog'],
+            'github' => $user['html_url'],
+            'location' => $user['location'],
+            'avatar' => $user['avatar_url'],
+            'company' => $user['company'] || '',
+            'public_repos' => $user['public_repos'],
+            'public_gists' => $user['public_gists'],
+            'name' => $user['name']
           )
         ));
       }
