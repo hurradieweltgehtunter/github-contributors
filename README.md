@@ -3,7 +3,7 @@ A wordpress plugin to fetch github user activity in an organization
 GitHub Events documentation: https://developer.github.com/v3/activity/events/
 
 ## ToDo's
-- create the output
+- create the output :white_check_mark:
 - Output: weight user on oc index
 - add stats for user (activiy, ...); create separate table for this
 - make a clean uninstall process
