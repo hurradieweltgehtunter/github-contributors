@@ -429,7 +429,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         $c = array(
           'id' => get_the_ID(),
           'title' => get_the_title(),
-          'excerpt' => get_the_excerpt()
+          'excerpt' => get_the_excerpt(),
+          'link' => get_the_permalink()
         );
 
         foreach($metas as $key=>$value) {
