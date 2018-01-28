@@ -320,7 +320,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     $content = '';
     $rest = array();
-    $text = '';
     $text = '<ul>';
 
     foreach($events as $key=>$e) {
