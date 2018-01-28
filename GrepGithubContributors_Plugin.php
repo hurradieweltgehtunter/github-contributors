@@ -2,8 +2,14 @@
 
 use Github\HttpClient\Message\ResponseMediator;
 include_once('GrepGithubContributors_LifeCycle.php');
+require_once __DIR__ . '/vendor/autoload.php';
 
 class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
+
+    function __construct() {
+      $this->client = new \Github\Client();
+      $this->client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
+    }
 
     /**
      * See: http://plugin.michael-simpson.com/?page_id=31
