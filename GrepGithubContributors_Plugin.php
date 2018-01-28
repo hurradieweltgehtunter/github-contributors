@@ -282,11 +282,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchUsersActivities() {
-    require_once __DIR__ . '/vendor/autoload.php';
-
-    $this->client = new \Github\Client();
-    $this->client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
-
     $args = array(
       'post_type' => 'contributor',
       'posts_per_page' => 10,
