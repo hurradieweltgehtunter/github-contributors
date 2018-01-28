@@ -321,6 +321,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $content = '';
     $rest = array();
     $text = '';
+    $text = '<ul>';
 
     foreach($events as $key=>$e) {
       $date = date('Y-m-d', strtotime($e['created_at'])) . ': ';
@@ -403,6 +404,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
+    $text .= '</ul>';
     // do sth. with $rest = uncatched events
 
     return $content;
