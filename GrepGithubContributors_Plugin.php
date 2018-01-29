@@ -34,14 +34,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 //    }
 
     protected function initOptions() {
-        $options = $this->getOptionMetaData();
-        if (!empty($options)) {
-            foreach ($options as $key => $arr) {
-                if (is_array($arr) && count($arr) > 1) {
-                    $this->addOption($key, $arr[1]);
-                }
-            }
+      $options = $this->getOptionMetaData();
+      if (!empty($options)) {
+        foreach ($options as $key => $arr) {
+          if (is_array($arr) && count($arr) > 1) {
+            $this->addOption($key, $arr[1]);
+          }
         }
+      }
     }
 
     public function getPluginDisplayName() {
@@ -107,7 +107,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         // Add Actions & Filters
         // http://plugin.michael-simpson.com/?page_id=37
         add_filter('get-contributors-list', array($this, 'startBaseJob'));
-        add_filter('get-blog-feeds', array($this, 'fetchBlogFeeds'));
+        add_filter('test', array($this, 'startBaseJob'));
 
         // Adding scripts & styles to all pages
         // Examples:
@@ -183,6 +183,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function startBaseJob() {
+    if ($this->getOption('current-action') !== 'idle') {
+      wp_die();
+    }
+
+    $this->updateOption('current-action', 'baseJob running');
+
+    $start = microtime(true);
+    file_put_contents('test.txt', 'starting Plugin run at ' . $start . PHP_EOL);
     // delete users who didn't get updated for at least 2 days (=> left the organization)
     $args = array(
       'post_type' => 'contributor',
@@ -203,113 +211,146 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
-    $this->fetchContributors();
-  }
-
-  public function fetchContributors() {
-    // if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
-    //   return false;
-    // }
-
-    require_once __DIR__ . '/vendor/autoload.php';
-
-    $client = new \Github\Client();
-    $client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
-
-    $members = $client->api('organizations')->members()->all($this->getOption('github-organization'));
-    $pagination = ResponseMediator::getPagination($client->getLastResponse());
+    // Fetch Member list from github
+    $members = $this->client->api('organizations')->members()->all($this->getOption('github-organization'));
+    $pagination = ResponseMediator::getPagination($this->client->getLastResponse());
 
     while(isset($pagination['next'])) {
-    //while(1 == 2) {
       $page = substr($pagination['next'], strpos($pagination['next'], 'page=') + 5);
       if (strpos($page, '&') > 0)
         $page = substr($page, 0, strpos($page, '&'));
 
-      $delta = $client->api('organizations')->members()->all($this->getOption('github-organization'), null, 'all', null, $page);
+      $delta = $this->client->api('organizations')->members()->all($this->getOption('github-organization'), null, 'all', null, $page);
 
-      $pagination = ResponseMediator::getPagination($client->getLastResponse());
+      $pagination = ResponseMediator::getPagination($this->client->getLastResponse());
 
       $temp = array_merge($members, $delta);
       $members = $temp;
-
-      break;
     }
 
-    // $members = array($members[0]);
+    file_put_contents('test.txt', 'found ' . count($members) . ' members' . PHP_EOL, FILE_APPEND);
 
+    $insert = 0;
+    $update = 0;
     $count = 0;
+    // get user details
     foreach($members as $member) {
+      $user = $this->getMemberDetails($member['login']);
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
-      $user = $client->api('user')->show($member['login']);
-      
+      // validate data
+      if(substr($user['blog'], -1) !== '/')
+        $user['blog'] = $user['blog'] . '/';
+
       if (null === $e) {
         // contributor is not in DB -> insert
-        $id = wp_insert_post(array(
-          'post_excerpt' => $user['bio'] . ' ',
-          'post_title' => $user['login'],
-          'post_status' => 'publish',
-          'post_type' => 'contributor',
-          'comment_status' => 'closed',
-          'meta_input' => array(
-            'blog' => $user['blog'],
-            'feed' => '',
-            'github' => $user['html_url'],
-            'location' => $user['location'],
-            'avatar' => $user['avatar_url'],
-            'company' => $user['company'] || '',
-            'public_repos' => $user['public_repos'],
-            'public_gists' => $user['public_gists'],
-            'visible' => 1,
-            'name' => $user['name'],
-            'last_activity_fetch' => 0,
-            'last_feed_fetch' => 0,
-            'feedposts' => '',
-            'oc-index' => 0,
-            'nc-index' => 0
-          )
-        ));
+        $id = $this->insertContributor($user);
+        file_put_contents('test.txt', 'inserting user ' . $user['login'] . PHP_EOL, FILE_APPEND);
+        $insert++;
       } else {
         // contributor is already in DB -> update
-        wp_update_post(array(
-          'ID' => $e->ID,
-          'post_excerpt' => $user['bio'] . ' ',
-          'meta_input' => array(
-            'blog' => $user['blog'],
-            'github' => $user['html_url'],
-            'location' => $user['location'],
-            'avatar' => $user['avatar_url'],
-            'company' => $user['company'] || '',
-            'public_repos' => $user['public_repos'],
-            'public_gists' => $user['public_gists'],
-            'name' => $user['name']
-          )
-        ));
-
-        $id = $e->ID;
+        $id = $this->updateContributor($e->ID, $user);
+        file_put_contents('test.txt', 'updating user ' . $user['login'] . PHP_EOL, FILE_APPEND);
+        $update++;
       }
 
-      // $user['blog'] = 'https://owncloud.org/';
       if ($user['blog'] !== '') {
-        $feed = $this->feedSearch($user['blog']);
+        $feed = $this->getContributorsFeedUrl($user);
         if (false !== $feed) {
-          echo 'feed found: ' . $feed . '<br />';
-          if (filter_var($feed, FILTER_VALIDATE_URL) === FALSE) {
-            echo 'not a valid url<br />';
-            $feed = $user['blog'] . '/' . str_replace('/', '', $feed);
-          }
-          echo 'final feed: ' . $feed . '<br />';
           update_post_meta( $id, 'feed', $feed);
-        } else {
-          // add no feed found handler
         }
       }
+      $count++;
+
+      if($count > 20) {
+        echo $count;
+        break;
+      }
+    }
+
+    file_put_contents('test.txt', 'done inserting users|inserted:' . $insert . '|updated:' . $update . PHP_EOL, FILE_APPEND);
+
+    //run initial activity fetching
+    if( $this->getOption('last_fetched') == 0 && !wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
+      file_put_contents('test.txt', 'setting up initial Activity fetch' . PHP_EOL, FILE_APPEND);
+      wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity', array(true));
+      spawn_cron();
     }
 
     $this->updateOption('last_fetched', time());
+    $end = microtime(true);
+    file_put_contents('test.txt', 'BaseJob done in ' . ($end - $start) . ' seconds' . PHP_EOL, FILE_APPEND);
+    $this->updateOption('current-action', 'idle');
+  }
+
+  public function getMemberDetails($username) {
+    return $this->client->api('user')->show($username);
+  }
+
+  public function insertContributor($user) {
+    return wp_insert_post(array(
+      'post_excerpt' => $user['bio'] . ' ',
+      'post_title' => $user['login'],
+      'post_status' => 'publish',
+      'post_type' => 'contributor',
+      'comment_status' => 'closed',
+      'meta_input' => array(
+        'blog' => $user['blog'],
+        'feed' => '',
+        'github' => $user['html_url'],
+        'location' => $user['location'],
+        'avatar' => $user['avatar_url'],
+        'company' => $user['company'] || '',
+        'public_repos' => $user['public_repos'],
+        'public_gists' => $user['public_gists'],
+        'visible' => 1,
+        'name' => $user['name'],
+        'last_activity_fetch' => 0,
+        'last_feed_fetch' => 0,
+        'feedposts' => '',
+        'oc-index' => 0,
+        'nc-index' => 0
+      )
+    ));
+  }
+
+  public function updateContributor($id, $user) {
+    wp_update_post(array(
+      'ID' => $id,
+      'post_excerpt' => $user['bio'] . ' ',
+      'meta_input' => array(
+        'blog' => $user['blog'],
+        'github' => $user['html_url'],
+        'location' => $user['location'],
+        'avatar' => $user['avatar_url'],
+        'company' => $user['company'] || '',
+        'public_repos' => $user['public_repos'],
+        'public_gists' => $user['public_gists'],
+        'name' => $user['name']
+      )
+    ));
+
+    return $id;
+  }
+
+  /**
+  Search for a users RSS Feed 
+  */
+  public function getContributorsFeedUrl($user) {
+    $feed = $this->feedSearch($user['blog']);
+    if (false !== $feed) {
+      if (filter_var($feed, FILTER_VALIDATE_URL) === FALSE) {
+        $feed = $user['blog'] . str_replace('/', '', $feed);
+      }
+      return $feed;
+    } else {
+      return false;
+    }
   }
 
   public function fetchUsersActivities() {
+    $this->updateOption('current-action', 'get User Activities');
+    file_put_contents('test.txt', 'starting userActivity run' . PHP_EOL, FILE_APPEND);
     $args = array(
       'post_type' => 'contributor',
       'posts_per_page' => 10,
@@ -318,12 +359,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'key'     => 'last_activity_fetch',
           'value'   => time() - 3600,
           'compare' => '<',
-        ),
+        )
       )
     );
     $the_query = new WP_Query( $args );
 
     if ( $the_query->have_posts() ) {
+
       while ( $the_query->have_posts() ) {
         $the_query->the_post();
         $githubActivity = $this->fetchUserActivities(get_the_title());
@@ -332,13 +374,20 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'ID'           => get_the_ID(),
           'post_content' => $githubActivity
         );
-
+        file_put_contents('test.txt', 'fetched activities for ' . get_the_title() . PHP_EOL, FILE_APPEND);
         wp_update_post( $user );
         update_post_meta( get_the_ID(), 'last_activity_fetch', time());
 
         $this->calcUserStats(get_the_ID(), $githubActivity);
       }
       wp_reset_postdata();
+
+      wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');
+      spawn_cron();
+    } else {
+      file_put_contents('test.txt', 'nothing else to to. setting up next scheduled run in 1 hour at' . (time() + 3600) . PHP_EOL, FILE_APPEND);
+      wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-activity');
+      $this->updateOption('current-action', 'idle');
     }
   }
 
@@ -456,13 +505,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   Searches a given URL for RSS feeds
   */
   public function feedSearch($url) {
+    echo $url;
     $start = microtime(true);
 
     if($html = @DOMDocument::loadHTML(file_get_contents($url))) { // this is really slow, better ways?
       $xpath = new DOMXPath($html);
       $feeds = $xpath->query("//head/link[@href][@type='application/rss+xml']/@href");
       $results = array();
-
+      print_r($feeds);
       foreach($feeds as $feed) {
         $results[] = $feed->nodeValue;
       }
