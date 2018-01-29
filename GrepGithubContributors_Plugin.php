@@ -106,7 +106,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Add Actions & Filters
         // http://plugin.michael-simpson.com/?page_id=37
-
+        add_filter('get-contributors-list', array($this, 'startBaseJob'));
+        add_filter('get-blog-feeds', array($this, 'fetchBlogFeeds'));
 
         // Adding scripts & styles to all pages
         // Examples:
@@ -117,8 +118,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         // Add Cronjobs
         add_action('grep-github-contributors-get-members', array($this, 'startBaseJob'));
         add_action('grep-github-contributors-get-member-activity', array($this, 'fetchUsersActivities'));
+        add_action('grep-github-contributors-get-member-feed', array($this, 'fetchBlogFeeds'));
         
-        add_filter('get-contributors-list', array($this, 'getContributorsList'));
+        
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
@@ -205,9 +207,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchContributors() {
-    if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
-      return false;
-    }
+    // if ( (time() - 3600) <= $this->getOption('last_fetched') ) {
+    //   return false;
+    // }
 
     require_once __DIR__ . '/vendor/autoload.php';
 
@@ -218,6 +220,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $pagination = ResponseMediator::getPagination($client->getLastResponse());
 
     while(isset($pagination['next'])) {
+    //while(1 == 2) {
       $page = substr($pagination['next'], strpos($pagination['next'], 'page=') + 5);
       if (strpos($page, '&') > 0)
         $page = substr($page, 0, strpos($page, '&'));
@@ -228,12 +231,16 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       $temp = array_merge($members, $delta);
       $members = $temp;
+
+      break;
     }
+
+    // $members = array($members[0]);
 
     $count = 0;
     foreach($members as $member) {
-
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
+
       $user = $client->api('user')->show($member['login']);
       
       if (null === $e) {
@@ -246,6 +253,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'comment_status' => 'closed',
           'meta_input' => array(
             'blog' => $user['blog'],
+            'feed' => '',
             'github' => $user['html_url'],
             'location' => $user['location'],
             'avatar' => $user['avatar_url'],
@@ -255,6 +263,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'visible' => 1,
             'name' => $user['name'],
             'last_activity_fetch' => 0,
+            'last_feed_fetch' => 0,
+            'feedposts' => '',
             'oc-index' => 0,
             'nc-index' => 0
           )
@@ -275,6 +285,24 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'name' => $user['name']
           )
         ));
+
+        $id = $e->ID;
+      }
+
+      // $user['blog'] = 'https://owncloud.org/';
+      if ($user['blog'] !== '') {
+        $feed = $this->feedSearch($user['blog']);
+        if (false !== $feed) {
+          echo 'feed found: ' . $feed . '<br />';
+          if (filter_var($feed, FILTER_VALIDATE_URL) === FALSE) {
+            echo 'not a valid url<br />';
+            $feed = $user['blog'] . '/' . str_replace('/', '', $feed);
+          }
+          echo 'final feed: ' . $feed . '<br />';
+          update_post_meta( $id, 'feed', $feed);
+        } else {
+          // add no feed found handler
+        }
       }
     }
 
@@ -412,7 +440,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     return $content;
   }
 
-  public function calcUserStats($postId, $githubActivity) {
+  protected function calcUserStats($postId, $githubActivity) {
     $word_count = explode(' ', $githubActivity);
     $word_count = count($word_count);
 
@@ -421,6 +449,85 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     update_post_meta( $postId, 'oc-index', $oc_index);
     update_post_meta( $postId, 'nc-index', $nc_index);
+  }
+
+
+  /**
+  Searches a given URL for RSS feeds
+  */
+  public function feedSearch($url) {
+    $start = microtime(true);
+
+    if($html = @DOMDocument::loadHTML(file_get_contents($url))) { // this is really slow, better ways?
+      $xpath = new DOMXPath($html);
+      $feeds = $xpath->query("//head/link[@href][@type='application/rss+xml']/@href");
+      $results = array();
+
+      foreach($feeds as $feed) {
+        $results[] = $feed->nodeValue;
+      }
+
+      return $results[0];
+    }
+    return false;
+  }
+
+  public function fetchBlogFeeds() {
+    set_time_limit(0);
+    $args = array(
+      'post_type' => 'contributor',
+      'posts_per_page' => 10,
+      'meta_query' => array(
+        'relation' => 'AND',
+        array(
+          'key'     => 'last_feed_fetch',
+          'value'   => time() - 86400,
+          'compare' => '<'
+        ),
+        array(
+          'key'     => 'blog',
+          'value'   => '',
+          'compare' => '!='
+        ),
+        array(
+          'key'     => 'feed',
+          'value'   => '',
+          'compare' => '!='
+        )
+      )
+    );
+    $the_query = new WP_Query( $args );
+    
+    if ( $the_query->have_posts() ) {
+      echo 'found ' . $the_query->post_count . ' relevant contributors<br />';
+      while ( $the_query->have_posts() ) {
+
+        $the_query->the_post();
+        $feedurl  = get_post_meta(get_the_ID(), 'feed')[0];
+        echo 'fetching feed for ' . get_the_title() . ': ' . $feedurl . '<br />';
+        
+        $xml      = simplexml_load_file($feedurl);
+        $posts    = array();
+        $count    = 0;
+        foreach ($xml->channel->item as $item) {
+          $posts[] = array(
+            'title' => (string) $item->title,
+            'link' => (string) $item->link,
+            'date' => (string) $item->pubDate
+          );
+
+          $count++;
+
+          if ($count >= 5)
+            break;
+        }
+
+        update_post_meta(get_the_ID(), 'feedposts', $posts);
+      }
+    }
+  }
+
+  public function getLatestFeed($feedUrl) {
 
   }
 

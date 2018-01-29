@@ -71,6 +71,10 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
            wp_schedule_event( time(), 'hourly', 'grep-github-contributors-get-member-activity' );
         }
 
+        if( !wp_next_scheduled( 'grep-github-contributors-get-member-feed' ) ) {  
+           wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-member-feed' );
+        }
+
         // how often github should be crawled
         $this->updateOption('last_fetched', time() - 3601);
 
@@ -86,6 +90,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
 
         wp_clear_scheduled_hook('grep-github-contributors-get-members');
         wp_clear_scheduled_hook('grep-github-contributors-get-member-activity');
+        wp_clear_scheduled_hook('grep-github-contributors-get-member-feed');
 
         flush_rewrite_rules();
     }
