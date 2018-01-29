@@ -31,7 +31,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
         // Initialize DB Tables used by the plugin
         $this->installDatabaseTables();
 
-        $this->installCustomPostType();
+        $this->registerPostType();
 
         // Other Plugin initialization - for the plugin writer to override as needed
         $this->otherInstall();

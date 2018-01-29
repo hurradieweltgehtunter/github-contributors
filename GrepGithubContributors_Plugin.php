@@ -18,7 +18,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     public function getOptionMetaData() {
         //  http://plugin.michael-simpson.com/?page_id=31
         return array(
-            '_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
+            // '_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
             'github-client-id' => array(__('GitHub Client ID', 'grep-github-contributors')),
             'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
             'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
@@ -37,7 +37,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         $options = $this->getOptionMetaData();
         if (!empty($options)) {
             foreach ($options as $key => $arr) {
-                if (is_array($arr) && count($arr > 1)) {
+                if (is_array($arr) && count($arr) > 1) {
                     $this->addOption($key, $arr[1]);
                 }
             }
@@ -197,11 +197,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     if ( $query->have_posts() ) {
       while ( $query->have_posts() ) {
         $query->the_post();
-        echo wp_delete_post( get_the_ID(), true );
+        wp_delete_post( get_the_ID(), true );
       }
     }
 
-    fetchContributors();
+    $this->fetchContributors();
   }
 
   public function fetchContributors() {
@@ -255,8 +255,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'visible' => 1,
             'name' => $user['name'],
             'last_activity_fetch' => 0,
-            'oc-index' => '',
-            'nc-index' => ''
+            'oc-index' => 0,
+            'nc-index' => 0
           )
         ));
       } else {
