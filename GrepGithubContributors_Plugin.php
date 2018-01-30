@@ -269,10 +269,18 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     file_put_contents('test.txt', 'done inserting users|inserted:' . $insert . '|updated:' . $update . PHP_EOL, FILE_APPEND);
 
-    //run initial activity fetching
-    if( $this->getOption('last_fetched') == 0 && !wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
-      file_put_contents('test.txt', 'setting up initial Activity fetch' . PHP_EOL, FILE_APPEND);
-      wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity', array(true));
+    //run initial fetch jobs
+    if( $this->getOption('last_fetched') == 0) {
+      if (!wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
+        file_put_contents('test.txt', 'setting up initial Activity fetch' . PHP_EOL, FILE_APPEND);
+        wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');  
+      }
+
+      if (!wp_next_scheduled( 'grep-github-contributors-get-member-feed' ) ) {
+        file_put_contents('test.txt', 'setting up initial feed fetch' . PHP_EOL, FILE_APPEND);
+        wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-feed');
+      }
+      
       spawn_cron();
     }
 
@@ -534,6 +542,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchBlogFeeds() {
+    $this->updateOption('current-action', 'fetch blog feeds');
+    $start = microtime(true);
+
     set_time_limit(0);
     $args = array(
       'post_type' => 'contributor',
@@ -560,12 +571,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $the_query = new WP_Query( $args );
     
     if ( $the_query->have_posts() ) {
-      echo 'found ' . $the_query->post_count . ' relevant contributors<br />';
+      file_put_contents('test.txt', 'starting blog feed fetch run for ' . $the_query->post_count . ' blogs at ' . $start . PHP_EOL, FILE_APPEND);
+
       while ( $the_query->have_posts() ) {
 
         $the_query->the_post();
         $feedurl  = get_post_meta(get_the_ID(), 'feed')[0];
-        echo 'fetching feed for ' . get_the_title() . ': ' . $feedurl . '<br />';
+        file_put_contents('test.txt', 'fetching feed for ' . get_the_title() . ': ' . $feedurl . PHP_EOL, FILE_APPEND);
         
         $xml      = simplexml_load_file($feedurl);
         $posts    = array();
@@ -582,10 +594,21 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           if ($count >= 5)
             break;
         }
-
+        file_put_contents('test.txt', 'fetched ' . $count . ' items for ' . get_the_title() . ': ' . $feedurl . PHP_EOL, FILE_APPEND);
         update_post_meta(get_the_ID(), 'feedposts', $posts);
+        update_post_meta(get_the_ID(), 'last_feed_fetch', time());
       }
+
+      wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-feed');
+      spawn_cron();
+    } else {
+      wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-activity');
+      file_put_contents('test.txt', 'ended blog feed fetch in ' . (microtime(true) - $start) . ' seconds ' . PHP_EOL, FILE_APPEND);
+      $this->updateOption('current-action', 'idle');
     }
+
+    file_put_contents('test.txt', 'ended blog feed fetch run ' . PHP_EOL, FILE_APPEND);
+
   }
 
   public function getLatestFeed($feedUrl) {
