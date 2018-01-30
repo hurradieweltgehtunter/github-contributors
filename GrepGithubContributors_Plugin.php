@@ -602,7 +602,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-feed');
       spawn_cron();
     } else {
-      wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-activity');
+      wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-feed');
       file_put_contents('test.txt', 'ended blog feed fetch in ' . (microtime(true) - $start) . ' seconds ' . PHP_EOL, FILE_APPEND);
       $this->updateOption('current-action', 'idle');
     }
