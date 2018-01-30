@@ -239,7 +239,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
       // validate data
-      if(substr($user['blog'], -1) !== '/')
+      if(count($user['blog']) > 0 && substr($user['blog'], -1) !== '/')
         $user['blog'] = $user['blog'] . '/';
 
       if (null === $e) {
@@ -262,8 +262,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
       $count++;
 
-      if($count > 20) {
-        echo $count;
+      if($count > 10) {
         break;
       }
     }
@@ -337,13 +336,16 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   Search for a users RSS Feed 
   */
   public function getContributorsFeedUrl($user) {
+    file_put_contents('test.txt', 'searching feeds on url ' . $user['blog'] . PHP_EOL, FILE_APPEND);
     $feed = $this->feedSearch($user['blog']);
     if (false !== $feed) {
       if (filter_var($feed, FILTER_VALIDATE_URL) === FALSE) {
         $feed = $user['blog'] . str_replace('/', '', $feed);
       }
+      file_put_contents('test.txt', 'feed found:' . $feed . PHP_EOL, FILE_APPEND);
       return $feed;
     } else {
+      file_put_contents('test.txt', 'no feed found' . PHP_EOL, FILE_APPEND);
       return false;
     }
   }
@@ -505,20 +507,29 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   Searches a given URL for RSS feeds
   */
   public function feedSearch($url) {
-    echo $url;
     $start = microtime(true);
+    $raw = @file_get_contents($url);
+    if ( false !== $raw) {
+      if($html = @DOMDocument::loadHTML($raw)) { // this is really slow, better ways?
 
-    if($html = @DOMDocument::loadHTML(file_get_contents($url))) { // this is really slow, better ways?
-      $xpath = new DOMXPath($html);
-      $feeds = $xpath->query("//head/link[@href][@type='application/rss+xml']/@href");
-      $results = array();
-      print_r($feeds);
-      foreach($feeds as $feed) {
-        $results[] = $feed->nodeValue;
+        $xpath = new DOMXPath($html);
+        $feeds = $xpath->query("//head/link[@href][@type='application/rss+xml']/@href");
+
+        if ($feeds->length > 0) {
+          $results = array();
+
+          foreach($feeds as $feed) {
+            $results[] = $feed->nodeValue;
+          }
+
+          return $results[0];  
+        } else {
+          return false;
+        }
       }
-
-      return $results[0];
+      return false;
     }
+
     return false;
   }
 
