@@ -64,11 +64,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
     public function activate() {
         // setup cronjobs
         if( !wp_next_scheduled( 'grep-github-contributors-get-members' ) ) {  
-           wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-members' );
-        }
-
-        if( !wp_next_scheduled( 'grep-github-contributors-get-member-feed' ) ) {  
-           wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-member-feed' );
+           // wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-members' );
         }
 
         // Add Options
