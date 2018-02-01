@@ -19,15 +19,15 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         //  http://plugin.michael-simpson.com/?page_id=31
         return array(
             // '_version' => array('Installed Version'), // Leave this one commented-out. Uncomment to test upgrades.
-            'github-client-id' => array(__('GitHub Client ID', 'grep-github-contributors')),
-            'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
-            'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
-            'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
-            'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors')),
+            'github-client-id' => array(__('GitHub Client ID', 'grep-github-contributors'), ''),
+            'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors'), ''),
+            'github-organization' => array(__('GitHub Organization', 'grep-github-contributors'), ''),
+            'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors'), ''),
+            'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors'), 5),
             'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
                                         'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone'),
-            'last_fetched' => array(__('Last fetched:', 'grep-github-contributors')),
-            'current-action' => array(__('Current action', 'grep-github-contributors')),
+            'last_fetched' => array(__('Last fetched:', 'grep-github-contributors'), ''),
+            'current-action' => array(__('Current action', 'grep-github-contributors'), 'idle'),
 
         );
     }
