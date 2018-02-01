@@ -277,38 +277,126 @@ class GrepGithubContributors_OptionsManager {
             }
         }
 
+        // check required settings
+        $start  = array('done' => true, 'errors' => array());
+
+        if ($this->getOption('github-client-id') === '') {
+            $start['done'] = false;
+            $start['errors'][] = 'github-client-id';
+        }
+
+        if ($this->getOption('github-client-id') === '') {
+            $start['done'] = false;
+            $start['errors'][] = 'github-client-secret';
+        }
+
+        if ($this->getOption('github-organization') === '') {
+            $start['done'] = false;
+            $start['errors'][] = 'github-client-organization';
+        }
+
+        if(isset($_POST['start-plugin'])) {
+            if (count($start['errors']) === 0) {
+                if( wp_next_scheduled( 'grep-github-contributors-get-members' ) ) {  
+                    wp_clear_scheduled_hook( 'grep-github-contributors-get-members' );
+                }
+
+                wp_schedule_event( time() - 1, 'daily', 'grep-github-contributors-get-members' );
+                spawn_cron();    
+            }
+        }
+
         // HTML for the page
         $settingsGroup = get_class($this) . '-settings-group';
         ?>
         <div class="wrap">
-            <h2><?php _e('System Settings', 'grep-github-contributors'); ?></h2>
-            <table cellspacing="1" cellpadding="2"><tbody>
-            <tr><td><?php _e('System', 'grep-github-contributors'); ?></td><td><?php echo php_uname(); ?></td></tr>
-            <tr><td><?php _e('PHP Version', 'grep-github-contributors'); ?></td>
-                <td><?php echo phpversion(); ?>
-                <?php
-                if (version_compare('5.2', phpversion()) > 0) {
-                    echo '&nbsp;&nbsp;&nbsp;<span style="background-color: #ffcc00;">';
-                    _e('(WARNING: This plugin may not work properly with versions earlier than PHP 5.2)', 'grep-github-contributors');
-                    echo '</span>';
-                }
-                ?>
-                </td>
-            </tr>
-            <tr><td><?php _e('MySQL Version', 'grep-github-contributors'); ?></td>
-                <td><?php echo $this->getMySqlVersion() ?>
-                    <?php
-                    echo '&nbsp;&nbsp;&nbsp;<span style="background-color: #ffcc00;">';
-                    if (version_compare('5.0', $this->getMySqlVersion()) > 0) {
-                        _e('(WARNING: This plugin may not work properly with versions earlier than MySQL 5.0)', 'grep-github-contributors');
-                    }
-                    echo '</span>';
-                    ?>
-                </td>
-            </tr>
-            </tbody></table>
+            <h2><?php echo _e('Settings', 'grep-github-contributors'); ?></h2>
 
-            <h2><?php echo $this->getPluginDisplayName(); echo ' '; _e('Settings', 'grep-github-contributors'); ?></h2>
+            <?php
+            if (count($start['errors']) === 0) : ?>
+                <?php
+                if (false === wp_next_scheduled( 'grep-github-contributors-get-members' )) : ?>
+                    <form method="post" action="">
+                        <p>Everything is set up - the plugin can work now. Hit "Start" to begin. The plugin will then work independently.</p>
+
+                        <input type="hidden" name="start-plugin" value="1"/>
+                        <input type="submit" class="button-primary" value="<?php _e('Start', 'grep-github-contributors'); ?>"/>
+                    </form>
+                <?php
+                else :
+                ?>
+                    <b>Next scheduled events:</b>
+                    <div>
+                        Fetch organization members from github: 
+                        <?php
+                        $schedule = wp_next_scheduled( 'grep-github-contributors-get-members' );
+
+                        if ($schedule > 0) {
+                            if ($schedule - time() <= 0) 
+                                $timeleft = 'now';
+                            else {
+                                $timeleft = gmdate('H:i:s', $schedule - time()) . ' left, running ' . wp_get_schedule('grep-github-contributors-get-members' );
+                            }
+
+                            echo date('d.m.Y H:i', $schedule) . ' (' . $timeleft . ')';    
+                        } else {
+                            echo 'not set';
+                        }
+                        
+                        ?>
+                    </div>
+
+                    <div>
+                        Fetch members GitHub activities: 
+                        <?php
+                        $schedule = wp_next_scheduled( 'grep-github-contributors-get-member-activity' );
+                        
+                        if ($schedule > 0) {
+                            if ($schedule - time() <= 0) 
+                                $timeleft = 'now';
+                            else {
+                                $timeleft = gmdate('H:i:s', $schedule - time()) . ' left';    
+                            }
+
+                            echo date('d.m.Y H:i', $schedule) . ' (' . $timeleft . ')';    
+                        } else {
+                            echo 'not set';
+                        }
+                        
+                        ?>
+                    </div>
+
+                    <div>
+                        Fetch blogposts of github members blogs:
+                        <?php
+                        $schedule = wp_next_scheduled( 'grep-github-contributors-get-member-feed' );
+                        
+                        if ($schedule > 0) {
+                            if ($schedule - time() <= 0) 
+                                $timeleft = 'now';
+                            else {
+                                $timeleft = gmdate('H:i:s', $schedule - time()) . ' left';
+                            }
+
+                            echo date('d.m.Y H:i', $schedule) . ' (' . $timeleft . ')';    
+                        } else {
+                            echo 'not set';
+                        }
+                        
+                        ?>
+                    </div>
+                <?php
+                endif;
+                ?>
+                <br />
+                <br />
+                <?php
+            else :
+            wp_clear_scheduled_hook( 'grep-github-contributors-get-members' ); ?>
+
+            <?php
+            endif;
+            ?>
 
             <form method="post" action="">
             <?php settings_fields($settingsGroup); ?>
@@ -344,6 +432,14 @@ class GrepGithubContributors_OptionsManager {
                 </p>
             </form>
 
+            <h2>Plugin status</h2>
+            <?php 
+            if (false === wp_next_scheduled( 'grep-github-contributors-get-members' )) : ?>
+                <p>Plugin is not running</p>
+            <?php else : ?>
+                <p>Plugin is running</p>
+            <?php endif; ?>
+
             <h2>Log</h2>
             <table  class="plugin-options-table">
                 <tr>
@@ -366,6 +462,33 @@ class GrepGithubContributors_OptionsManager {
 
                 ?>
             </table>
+
+            <h2><?php _e('System Settings', 'grep-github-contributors'); ?></h2>
+            <table cellspacing="1" cellpadding="2"><tbody>
+            <tr><td><?php _e('System', 'grep-github-contributors'); ?></td><td><?php echo php_uname(); ?></td></tr>
+            <tr><td><?php _e('PHP Version', 'grep-github-contributors'); ?></td>
+                <td><?php echo phpversion(); ?>
+                <?php
+                if (version_compare('5.2', phpversion()) > 0) {
+                    echo '&nbsp;&nbsp;&nbsp;<span style="background-color: #ffcc00;">';
+                    _e('(WARNING: This plugin may not work properly with versions earlier than PHP 5.2)', 'grep-github-contributors');
+                    echo '</span>';
+                }
+                ?>
+                </td>
+            </tr>
+            <tr><td><?php _e('MySQL Version', 'grep-github-contributors'); ?></td>
+                <td><?php echo $this->getMySqlVersion() ?>
+                    <?php
+                    echo '&nbsp;&nbsp;&nbsp;<span style="background-color: #ffcc00;">';
+                    if (version_compare('5.0', $this->getMySqlVersion()) > 0) {
+                        _e('(WARNING: This plugin may not work properly with versions earlier than MySQL 5.0)', 'grep-github-contributors');
+                    }
+                    echo '</span>';
+                    ?>
+                </td>
+            </tr>
+            </tbody></table>
         </div>
         <?php
 
