@@ -23,6 +23,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
             'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
             'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
+            'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors')),
             'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
                                         'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone'),
             'last_fetched' => array(__('Last fetched:', 'grep-github-contributors')),
@@ -64,12 +65,15 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
      * @return void
      */
     protected function installDatabaseTables() {
-                // global $wpdb;
-                // $tableName = $this->prefixTableName('oc-contributors');
-                // $wpdb->query("CREATE TABLE IF NOT EXISTS `$tableName` (
-                //     `id` INTEGER NOT NULL
-                //     ``
-                //     ");
+      global $wpdb;
+      $tableName = $this->prefixTableName('log');
+      $wpdb->query("CREATE TABLE IF NOT EXISTS `$tableName` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `date` int(11) NOT NULL,
+          `message` text NOT NULL,
+          PRIMARY KEY (id)
+          )
+          ");
     }
 
     /**
@@ -78,9 +82,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
      * @return void
      */
     protected function unInstallDatabaseTables() {
-                // global $wpdb;
-                // $tableName = $this->prefixTableName('oc-contributors');
-                // $wpdb->query("DROP TABLE IF EXISTS `$tableName`");
+      global $wpdb;
+      $tableName = $this->prefixTableName('log');
+      $wpdb->query("DROP TABLE IF EXISTS `$tableName`");
     }
 
 
@@ -185,16 +189,27 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       register_post_type( 'contributor', $args );
   }
 
+  public function log($message) {
+    global $wpdb;
+    $wpdb->query("INSERT INTO " . $this->prefixTableName('log') . " (id, date, message) VALUES (NULL, '" . time() . "', '$message')");
+  }
+
   public function startBaseJob() {
+    // keep the log celan
+    global $wpdb;
+    $results = $wpdb->query("DELETE FROM " . $this->prefixTableName('log') . " WHERE date < " . (time() - (86400 * $this->getOption('log-duration'))));
+
+    $this->log('starting Plugin run');
     // some other plugin job is running
     if ($this->getOption('current-action') !== 'idle') {
+      $this->log('Plugin not idling - aborting. current action: ' . $this->getOption('current-action'));
       wp_die();
     }
 
     $this->updateOption('current-action', 'baseJob running');
 
     $start = microtime(true);
-    file_put_contents('test.txt', 'starting Plugin run at ' . date('d.m.Y H:i', $start) . PHP_EOL);
+    
     // delete users who didn't get updated for at least 2 days (=> left the organization)
     $args = array(
       'post_type' => 'contributor',
@@ -232,7 +247,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       $members = $temp;
     }
 
-    file_put_contents('test.txt', 'found ' . count($members) . ' members' . PHP_EOL, FILE_APPEND);
+    $this->log('found ' . count($members) . ' members');
 
     $insert = 0;
     $update = 0;
@@ -250,12 +265,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       if (null === $e) {
         // contributor is not in DB -> insert
         $id = $this->insertContributor($user);
-        file_put_contents('test.txt', 'inserting user ' . $user['login'] . PHP_EOL, FILE_APPEND);
+        $this->log('inserting user ' . $user['login']);
         $insert++;
       } else {
         // contributor is already in DB -> update
         $id = $this->updateContributor($e->ID, $user);
-        file_put_contents('test.txt', 'updating user ' . $user['login'] . PHP_EOL, FILE_APPEND);
+        $this->log('updating user ' . $user['login']);
         $update++;
       }
 
@@ -272,17 +287,17 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
-    file_put_contents('test.txt', 'done inserting users|inserted:' . $insert . '|updated:' . $update . PHP_EOL, FILE_APPEND);
+    $this->log('done inserting users|inserted:' . $insert . '|updated:' . $update);
 
     //run initial fetch jobs
     if( $this->getOption('last_fetched') == 0) {
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
-        file_put_contents('test.txt', 'setting up initial Activity fetch' . PHP_EOL, FILE_APPEND);
+        $this->log('setting up initial Activity fetch');
         wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');
       }
 
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-feed' ) ) {
-        file_put_contents('test.txt', 'setting up initial feed fetch' . PHP_EOL, FILE_APPEND);
+        $this->log('setting up initial feed fetch');
         wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-feed');
       }
 
@@ -291,7 +306,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     $this->updateOption('last_fetched', time());
     $end = microtime(true);
-    file_put_contents('test.txt', 'BaseJob done in ' . ($end - $start) . ' seconds' . PHP_EOL, FILE_APPEND);
+    $this->log('BaseJob done in ' . ($end - $start) . ' seconds');
     $this->updateOption('current-action', 'idle');
   }
 
@@ -349,24 +364,23 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   Search for a users RSS Feed
   */
   public function getContributorsFeedUrl($user) {
-    file_put_contents('test.txt', 'searching feeds on url ' . $user['blog'] . PHP_EOL, FILE_APPEND);
+    $logtext = 'searching feeds on url ' . $user['blog']. ':';
     $feed = $this->feedSearch($user['blog']);
     if (false !== $feed) {
       if (filter_var($feed, FILTER_VALIDATE_URL) === FALSE) {
         $feed = $user['blog'] . str_replace('/', '', $feed);
       }
-      file_put_contents('test.txt', 'feed found:' . $feed . PHP_EOL, FILE_APPEND);
+      $this->log($logtext . 'feed found:' . $feed);
       return $feed;
     } else {
-      file_put_contents('test.txt', 'no feed found' . PHP_EOL, FILE_APPEND);
+      $this->log($logtext . 'no feed found');
       return false;
     }
   }
 
   public function fetchUsersActivities() {
-    wp_mail( 'florian@owncloud.com', 'plugin', 'starting activity fetch ' . date('d.m.Y H:i'), array('Content-Type: text/html; charset=UTF-8', 'From: noreply@owncloud.com'));
     $this->updateOption('current-action', 'get User Activities');
-    file_put_contents('test.txt', 'starting userActivity run' . PHP_EOL, FILE_APPEND);
+    $this->log('starting userActivity run');
     $args = array(
       'post_type' => 'contributor',
       'posts_per_page' => 10,
@@ -390,7 +404,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'ID'           => get_the_ID(),
           'post_content' => $githubActivity
         );
-        file_put_contents('test.txt', 'fetched activities for ' . get_the_title() . PHP_EOL, FILE_APPEND);
+        $this->log('fetched activities for ' . get_the_title());
         wp_update_post( $user );
         update_post_meta( get_the_ID(), 'last_activity_fetch', time());
 
@@ -398,10 +412,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
       wp_reset_postdata();
 
+      $this->log('ended activity update run on 10 users. scheduling next round');
       wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');
       spawn_cron();
     } else {
-      file_put_contents('test.txt', 'nothing else to to. setting up next scheduled run in 1 hour at' . (time() + 3600) . PHP_EOL, FILE_APPEND);
+      $this->log('nothing else to to. schedule next activity fetch run in 1 hour at ' . (date('d.m.Y H:i', (time() + 3600))));
       wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-activity');
       $this->updateOption('current-action', 'idle');
     }
@@ -577,13 +592,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $the_query = new WP_Query( $args );
 
     if ( $the_query->have_posts() ) {
-      file_put_contents('test.txt', 'starting blog feed fetch run for ' . $the_query->post_count . ' blogs at ' . $start . PHP_EOL, FILE_APPEND);
+      $this->log('starting blog feed fetch run for ' . $the_query->post_count . ' blogs');
 
       while ( $the_query->have_posts() ) {
 
         $the_query->the_post();
         $feedurl  = get_post_meta(get_the_ID(), 'feed')[0];
-        file_put_contents('test.txt', 'fetching feed for ' . get_the_title() . ': ' . $feedurl . PHP_EOL, FILE_APPEND);
+        $this->log('fetching feed for ' . get_the_title() . ': ' . $feedurl);
 
         $xml      = simplexml_load_file($feedurl);
         $posts    = array();
@@ -600,7 +615,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           if ($count >= 5)
             break;
         }
-        file_put_contents('test.txt', 'fetched ' . $count . ' items for ' . get_the_title() . ': ' . $feedurl . PHP_EOL, FILE_APPEND);
+        $this->log('fetched ' . $count . ' items for ' . get_the_title() . ': ' . $feedurl);
         update_post_meta(get_the_ID(), 'feedposts', $posts);
         update_post_meta(get_the_ID(), 'last_feed_fetch', time());
       }
@@ -609,11 +624,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       spawn_cron();
     } else {
       wp_schedule_single_event( time() + 3600, 'grep-github-contributors-get-member-feed');
-      file_put_contents('test.txt', 'ended blog feed fetch in ' . (microtime(true) - $start) . ' seconds ' . PHP_EOL, FILE_APPEND);
+      $this->log('ended blog feed fetch in ' . (microtime(true) - $start) . ' seconds ');
       $this->updateOption('current-action', 'idle');
     }
 
-    file_put_contents('test.txt', 'ended blog feed fetch run ' . PHP_EOL, FILE_APPEND);
+    $this->log('ended blog feed fetch run ');
 
   }
 

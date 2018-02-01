@@ -12,3 +12,4 @@ GitHub Events documentation: https://developer.github.com/v3/activity/events/
 - provide a clean plugin submenu in backend
 - remove .DS_store :white_check_mark:
 - make sure all dependencies are installed correctly
+- remove file_put_contents log messages / move to log table

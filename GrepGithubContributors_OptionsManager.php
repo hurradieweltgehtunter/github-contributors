@@ -343,6 +343,29 @@ class GrepGithubContributors_OptionsManager {
                            value="<?php _e('Save Changes', 'grep-github-contributors') ?>"/>
                 </p>
             </form>
+
+            <h2>Log</h2>
+            <table  class="plugin-options-table">
+                <tr>
+                    <th>Date</th>
+                    <th>Message</th>
+                </tr>
+                <?php
+
+                global $wpdb;
+                $results = $wpdb->get_results("SELECT * FROM " . $this->prefixTableName('log') . " ORDER BY id DESC LIMIT 0, 1000");
+
+                foreach($results as $row) { 
+                    ?>
+                    <tr>
+                        <td><?php echo date('d.m.Y H:i:s', $row->date); ?></td>
+                        <td><?php echo $row->message; ?></td>
+                    </tr>
+                <?php
+                }
+
+                ?>
+            </table>
         </div>
         <?php
 
