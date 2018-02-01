@@ -113,8 +113,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Add Actions & Filters
         // http://plugin.michael-simpson.com/?page_id=37
-        add_filter('get-contributors-list', array($this, 'startBaseJob'));
-        add_filter('test', array($this, 'startBaseJob'));
 
         // Adding scripts & styles to all pages
         // Examples:
@@ -195,7 +193,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function startBaseJob() {
-    // keep the log celan
+    // keep the log clean
     global $wpdb;
     $results = $wpdb->query("DELETE FROM " . $this->prefixTableName('log') . " WHERE date < " . (time() - (86400 * $this->getOption('log-duration'))));
 
