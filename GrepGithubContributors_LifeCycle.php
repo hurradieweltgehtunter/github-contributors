@@ -73,6 +73,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
 
         // Add Options
         $this->addOption('current-action', 'idle');
+        $this->addOption('log-duration', '5');
 
         flush_rewrite_rules();
     }
