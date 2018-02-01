@@ -413,13 +413,13 @@ class GrepGithubContributors_OptionsManager {
                 <?php
                 if ($optionMetaData != null) {
                     foreach ($optionMetaData as $aOptionKey => $aOptionMeta) {
-                        $displayText = is_array($aOptionMeta) ? $aOptionMeta[0] : $aOptionMeta;
+                        if (!isset($aOptionMeta[2]))
+                            $aOptionMeta[2] = '';
                         ?>
                             <tr valign="top">
-                                <th scope="row"><p><label for="<?php echo $aOptionKey ?>"><?php echo $displayText ?></label></p></th>
+                                <th scope="row"><p><label for="<?php echo $aOptionKey ?>"><?php echo $aOptionMeta[0]; ?></label></p></th>
                                 <td>
-                                <?php $this->createFormControl($aOptionKey, $aOptionMeta, $this->getOption($aOptionKey)); ?>
-                                </td>
+                                <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey)); ?>
                             </tr>
                         <?php
                     }
