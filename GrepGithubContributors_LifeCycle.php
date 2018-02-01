@@ -74,8 +74,6 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     public function deactivate() {
-        delete_option( 'last_fetched' );
-
         wp_clear_scheduled_hook('grep-github-contributors-get-members');
         wp_clear_scheduled_hook('grep-github-contributors-get-member-activity');
         wp_clear_scheduled_hook('grep-github-contributors-get-member-feed');
@@ -127,7 +125,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherUninstall() {
-        
+        // delete_option( 'last_fetched' );
     }
 
     /**

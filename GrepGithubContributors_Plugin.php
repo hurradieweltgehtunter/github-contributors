@@ -42,7 +42,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         foreach ($options as $key => $arr) {
           if (!isset($arr[1]))
             $arr[1] = '';
-          
+
           $this->addOption($key, $arr[1]);
         }
       }
@@ -85,6 +85,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       global $wpdb;
       $tableName = $this->prefixTableName('log');
       $wpdb->query("DROP TABLE IF EXISTS `$tableName`");
+    }
+
+    protected function otherUninstall() {
+      foreach($this->getOptionMetaData() as $key => $option);
+        $this->deleteOption( $key );
     }
 
 
