@@ -24,7 +24,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
             'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
             'CanDoSomething' => array(__('Which user role can do something', 'grep-github-contributors'),
-                                        'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone')
+                                        'Administrator', 'Editor', 'Author', 'Contributor', 'Subscriber', 'Anyone'),
+            'last_fetched' => array(__('Last fetched:', 'grep-github-contributors')),
+            'current-action' => array(__('Current action', 'grep-github-contributors')),
+
         );
     }
 
@@ -119,8 +122,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         add_action('grep-github-contributors-get-members', array($this, 'startBaseJob'));
         add_action('grep-github-contributors-get-member-activity', array($this, 'fetchUsersActivities'));
         add_action('grep-github-contributors-get-member-feed', array($this, 'fetchBlogFeeds'));
-        
-        
+
+
 
         // Register short codes
         // http://plugin.michael-simpson.com/?page_id=39
@@ -146,9 +149,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           'not_found'           => __( 'Not Found', 'getGithubContributorsPlugin' ),
           'not_found_in_trash'  => __( 'Not found in Trash', 'getGithubContributorsPlugin' ),
       );
-       
+
       // Set other options for Custom Post Type
-       
+
       $args = array(
           'label'               => __( 'contributor', 'getGithubContributorsPlugin' ),
           'description'         => __( 'ownCloud\'s GitHub contributors', 'getGithubContributorsPlugin' ),
@@ -158,7 +161,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           /* A hierarchical CPT is like Pages and can have
           * Parent and child items. A non-hierarchical CPT
           * is like Posts.
-          */ 
+          */
           'hierarchical'        => false,
           'public'              => true,
           'show_ui'             => true,
@@ -177,12 +180,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         flush_rewrite_rules();
         $args['rewrite'] = array('slug' => $this->getOption('post-type-rewrite'));
       }
-       
+
       // Registering your Custom Post Type
       register_post_type( 'contributor', $args );
   }
 
   public function startBaseJob() {
+    // some other plugin job is running
     if ($this->getOption('current-action') !== 'idle') {
       wp_die();
     }
@@ -190,7 +194,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->updateOption('current-action', 'baseJob running');
 
     $start = microtime(true);
-    file_put_contents('test.txt', 'starting Plugin run at ' . $start . PHP_EOL);
+    file_put_contents('test.txt', 'starting Plugin run at ' . date('d.m.Y H:i', $start) . PHP_EOL);
     // delete users who didn't get updated for at least 2 days (=> left the organization)
     $args = array(
       'post_type' => 'contributor',
@@ -236,10 +240,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     // get user details
     foreach($members as $member) {
       $user = $this->getMemberDetails($member['login']);
+      print_r($user);
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
       // validate data
-      if(count($user['blog']) > 0 && substr($user['blog'], -1) !== '/')
+      if(count($user['blog']) > 1 && substr($user['blog'], -1) !== '/')
         $user['blog'] = $user['blog'] . '/';
 
       if (null === $e) {
@@ -273,14 +278,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     if( $this->getOption('last_fetched') == 0) {
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
         file_put_contents('test.txt', 'setting up initial Activity fetch' . PHP_EOL, FILE_APPEND);
-        wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');  
+        wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-activity');
       }
 
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-feed' ) ) {
         file_put_contents('test.txt', 'setting up initial feed fetch' . PHP_EOL, FILE_APPEND);
         wp_schedule_single_event( time() - 1, 'grep-github-contributors-get-member-feed');
       }
-      
+
       spawn_cron();
     }
 
@@ -296,7 +301,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
   public function insertContributor($user) {
     return wp_insert_post(array(
-      'post_excerpt' => $user['bio'] . ' ',
+      'post_excerpt' => $user['bio'] . ' ', // add space as excerpt must not be empty in wordpress
       'post_title' => $user['login'],
       'post_status' => 'publish',
       'post_type' => 'contributor',
@@ -307,7 +312,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         'github' => $user['html_url'],
         'location' => $user['location'],
         'avatar' => $user['avatar_url'],
-        'company' => $user['company'] || '',
+        'company' => $user['company'],
         'public_repos' => $user['public_repos'],
         'public_gists' => $user['public_gists'],
         'visible' => 1,
@@ -324,13 +329,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   public function updateContributor($id, $user) {
     wp_update_post(array(
       'ID' => $id,
-      'post_excerpt' => $user['bio'] . ' ',
+      'post_excerpt' => $user['bio'] . ' ', // add space as excerpt must not be empty in wordpress
       'meta_input' => array(
         'blog' => $user['blog'],
         'github' => $user['html_url'],
         'location' => $user['location'],
         'avatar' => $user['avatar_url'],
-        'company' => $user['company'] || '',
+        'company' => $user['company'],
         'public_repos' => $user['public_repos'],
         'public_gists' => $user['public_gists'],
         'name' => $user['name']
@@ -341,7 +346,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   /**
-  Search for a users RSS Feed 
+  Search for a users RSS Feed
   */
   public function getContributorsFeedUrl($user) {
     file_put_contents('test.txt', 'searching feeds on url ' . $user['blog'] . PHP_EOL, FILE_APPEND);
@@ -359,6 +364,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchUsersActivities() {
+    wp_mail( 'florian@owncloud.com', 'plugin', 'starting activity fetch ' . date('d.m.Y H:i'), array('Content-Type: text/html; charset=UTF-8', 'From: noreply@owncloud.com'));
     $this->updateOption('current-action', 'get User Activities');
     file_put_contents('test.txt', 'starting userActivity run' . PHP_EOL, FILE_APPEND);
     $args = array(
@@ -421,7 +427,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
               $response = $this->client->getHttpClient()->get($url);
               $commit     = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
-              $text = '<li class="repo-push">' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">' . $username . ' pushed to repository ' . $e['repo']['name'] . '</a></li>';  
+              $text = '<li class="repo-push">' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">' . $username . ' pushed to repository ' . $e['repo']['name'] . '</a></li>';
             }
             break;
 
@@ -429,7 +435,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             $url = str_replace('https://api.github.com', '', $e['repo']['url']);
             $response = $this->client->getHttpClient()->get($url);
             $entity     = Github\HttpClient\Message\ResponseMediator::getContent($response);
-            
+
             $text = '<li class="create-' . $e['payload']['ref_type'] . '">' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">' . $username . ' created a ' . $e['payload']['ref_type'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
@@ -440,16 +446,16 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
           case 'IssuesEvent':
             switch($e['payload']['action']) {
               case 'opened':
-                $class = 'issue-opened';
+                $class = 'opened';
               case 'closed':
-                $class = 'issue-closed';
+                $class = 'closed';
               case 'reopened':
-                $class = 'issue-reopened';
+                $class = 'reopened';
               default:
                 $text = '<li class="issue-' . $class . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
                 break;
             }
-            
+
             break;
 
           case 'CommitCommentEvent':
@@ -530,7 +536,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             $results[] = $feed->nodeValue;
           }
 
-          return $results[0];  
+          return $results[0];
         } else {
           return false;
         }
@@ -569,7 +575,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       )
     );
     $the_query = new WP_Query( $args );
-    
+
     if ( $the_query->have_posts() ) {
       file_put_contents('test.txt', 'starting blog feed fetch run for ' . $the_query->post_count . ' blogs at ' . $start . PHP_EOL, FILE_APPEND);
 
@@ -578,7 +584,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         $the_query->the_post();
         $feedurl  = get_post_meta(get_the_ID(), 'feed')[0];
         file_put_contents('test.txt', 'fetching feed for ' . get_the_title() . ': ' . $feedurl . PHP_EOL, FILE_APPEND);
-        
+
         $xml      = simplexml_load_file($feedurl);
         $posts    = array();
         $count    = 0;
@@ -646,6 +652,3 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     return $contributors;
   }
 }
-
-
-
