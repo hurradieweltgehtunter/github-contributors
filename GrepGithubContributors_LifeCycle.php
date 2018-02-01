@@ -62,11 +62,6 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     public function activate() {
-        // setup cronjobs
-        if( !wp_next_scheduled( 'grep-github-contributors-get-members' ) ) {  
-           // wp_schedule_event( time(), 'daily', 'grep-github-contributors-get-members' );
-        }
-
         // Add Options
         $this->addOption('current-action', 'idle');
         $this->addOption('log-duration', '5');
