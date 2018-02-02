@@ -278,30 +278,27 @@ class GrepGithubContributors_OptionsManager {
             }
         }
 
-        // check required settings
-        $start  = array('done' => true, 'errors' => array());
+        if (isset($_POST)) {
+            // check required settings
+            if ($this->getOption('github-client-id') === '') {
+                $this->errors[] = 'github-client-id';
+            }
 
-        if ($this->getOption('github-client-id') === '') {
-            $start['done'] = false;
-            $this->errors[] = 'github-client-id';
-        }
+            if ($this->getOption('github-client-id') === '') {
+                $this->errors[] = 'github-client-secret';
+            }
 
-        if ($this->getOption('github-client-id') === '') {
-            $start['done'] = false;
-            $this->errors[] = 'github-client-secret';
-        }
+            if ($this->getOption('github-organization') === '') {
+                $this->errors[] = 'github-organization';
+            }
 
-        if ($this->getOption('github-organization') === '') {
-            $start['done'] = false;
-            $this->errors[] = 'github-organization';
+            try {
+                $members = $this->client->api('organizations')->members()->all($this->getOption('github-organization'));  
+            } catch (Exception $e) {
+                $this->errors[] = 'github-organization';
+            }
         }
-
-        try {
-            $members = $this->client->api('organizations')->members()->all($this->getOption('github-organization'));  
-        } catch (Exception $e) {
-            $start['done'] = false;
-            $this->errors[] = 'github-organization';
-        }
+        
 
         if(isset($_POST['start-plugin'])) {
             if (count($this->errors) === 0) {
@@ -439,10 +436,9 @@ class GrepGithubContributors_OptionsManager {
                                 <td>
                                     <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey), $aOptionMeta[3]); ?>
                                     <?php
-                                    if (in_array($aOptionKey, $this->errors)) : ?>
-                                        <p>Organization could not be found</p>
-                                    <?php
-                                    endif;
+                                    if (in_array($aOptionKey, $this->errors)) {
+                                        echo '<p>' . $aOptionMeta[4] . '</p>';
+                                    }
                                     ?>
                                 </td>
                             </tr>
