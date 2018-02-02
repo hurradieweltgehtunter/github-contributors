@@ -115,8 +115,7 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * See: http://plugin.michael-simpson.com/?page_id=33
      * @return void
      */
-    protected function otherInstall() {
-        
+    protected function otherInstall() {   
     }
 
     /**
@@ -125,7 +124,6 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     protected function otherUninstall() {
-        // delete_option( 'last_fetched' );
     }
 
     /**
