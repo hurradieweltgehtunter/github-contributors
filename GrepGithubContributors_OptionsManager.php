@@ -20,6 +20,7 @@
 */
 
 class GrepGithubContributors_OptionsManager {
+    private $errors = array();
 
     public function getOptionNamePrefix() {
         return get_class($this) . '_';
@@ -282,21 +283,28 @@ class GrepGithubContributors_OptionsManager {
 
         if ($this->getOption('github-client-id') === '') {
             $start['done'] = false;
-            $start['errors'][] = 'github-client-id';
+            $this->errors[] = 'github-client-id';
         }
 
         if ($this->getOption('github-client-id') === '') {
             $start['done'] = false;
-            $start['errors'][] = 'github-client-secret';
+            $this->errors[] = 'github-client-secret';
         }
 
         if ($this->getOption('github-organization') === '') {
             $start['done'] = false;
-            $start['errors'][] = 'github-client-organization';
+            $this->errors[] = 'github-organization';
+        }
+
+        try {
+            $members = $this->client->api('organizations')->members()->all($this->getOption('github-organization'));  
+        } catch (Exception $e) {
+            $start['done'] = false;
+            $this->errors[] = 'github-organization';
         }
 
         if(isset($_POST['start-plugin'])) {
-            if (count($start['errors']) === 0) {
+            if (count($this->errors) === 0) {
                 if( wp_next_scheduled( 'grep-github-contributors-get-members' ) ) {  
                     wp_clear_scheduled_hook( 'grep-github-contributors-get-members' );
                 }
@@ -313,7 +321,7 @@ class GrepGithubContributors_OptionsManager {
             <h2><?php echo _e('Settings', 'grep-github-contributors'); ?></h2>
 
             <?php
-            if (count($start['errors']) === 0) : ?>
+            if (count($this->errors) === 0) : ?>
                 <?php
                 if (false === wp_next_scheduled( 'grep-github-contributors-get-members' )) : ?>
                     <form method="post" action="">
@@ -408,6 +416,7 @@ class GrepGithubContributors_OptionsManager {
                     table.plugin-options-table td {vertical-align: middle;}
                     table.plugin-options-table td+td {width: auto}
                     table.plugin-options-table td > p {margin-top: 0; margin-bottom: 0;}
+                    table.plugin-options-table tr.has-error * {color: red;}
                 </style>
                 <table class="plugin-options-table"><tbody>
                 <?php
@@ -422,10 +431,20 @@ class GrepGithubContributors_OptionsManager {
                         if ($aOptionMeta[3] === 'hidden')
                             continue;
                         ?>
-                            <tr valign="top">
+                            <tr valign="top"<?php 
+                                if (in_array($aOptionKey, $this->errors))
+                                    echo ' class="has-error"';
+                                ?>>
                                 <th scope="row"><p><label for="<?php echo $aOptionKey ?>"><?php echo $aOptionMeta[0]; ?></label></p></th>
                                 <td>
-                                <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey), $aOptionMeta[3]); ?>
+                                    <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey), $aOptionMeta[3]); ?>
+                                    <?php
+                                    if (in_array($aOptionKey, $this->errors)) : ?>
+                                        <p>Organization could not be found</p>
+                                    <?php
+                                    endif;
+                                    ?>
+                                </td>
                             </tr>
                         <?php
                     }
