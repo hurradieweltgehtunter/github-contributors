@@ -473,7 +473,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
                 $text .= '<li class="issue-' . $class . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
                 break;
             }
-
             break;
 
           case 'CommitCommentEvent':

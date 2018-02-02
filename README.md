@@ -16,3 +16,4 @@ GitHub Events documentation: https://developer.github.com/v3/activity/events/
 - add handlers for github api errors (current action gets stuck)
 - add uninstall routine :white_check_mark:
 - remove all custom post type posts on uninstall
+- Add action to handle uncatched github events
