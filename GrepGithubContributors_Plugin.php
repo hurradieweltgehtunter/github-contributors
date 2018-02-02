@@ -32,7 +32,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
             'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors'), 5),
             'last_fetched' => array(__('Last fetched:', 'grep-github-contributors')),
-            'current-action' => array(__('Current action', 'grep-github-contributors'))
+            'current-action' => array(__('Current action', 'grep-github-contributors'), 'idle')
         );
     }
 
