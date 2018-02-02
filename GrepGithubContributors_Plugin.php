@@ -219,7 +219,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       if ($this->getOption('post-type-rewrite') !== '') {
         flush_rewrite_rules();
-        $args['rewrite'] = array('slug' => $this->getOption('post-type-rewrite'));
+        $args['rewrite'] = array('slug' => $this->getOption('post-type-rewrite'), 'with_front' => false);
       }
 
       // Registering your Custom Post Type
