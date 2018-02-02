@@ -30,9 +30,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             'github-client-secret' => array(__('GitHub Client secret', 'grep-github-contributors')),
             'github-organization' => array(__('GitHub Organization', 'grep-github-contributors')),
             'post-type-rewrite' => array(__('Available via Slug', 'grep-github-contributors')),
-            'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors'), 5),
-            'last_fetched' => array(__('Last fetched:', 'grep-github-contributors')),
-            'current-action' => array(__('Current action', 'grep-github-contributors'), 'idle')
+            'log-duration' => array(__('How long should the log be stored? (days)', 'grep-github-contributors'), 5, null, 'number'),
+            'last_fetched' => array(__('Last fetched:', 'grep-github-contributors'), 0, null, 'hidden'),
+            'current-action' => array(__('Current action', 'grep-github-contributors'), 'idle', null, 'hidden')
         );
     }
 

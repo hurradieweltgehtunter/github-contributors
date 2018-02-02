@@ -317,7 +317,7 @@ class GrepGithubContributors_OptionsManager {
                 <?php
                 if (false === wp_next_scheduled( 'grep-github-contributors-get-members' )) : ?>
                     <form method="post" action="">
-                        <p>Everything is set up - the plugin can work now. Hit "Start" to begin. The plugin will then work independently.</p>
+                        <p>Everything is set up. Hit "Start" to begin. The plugin will then work independently.</p>
 
                         <input type="hidden" name="start-plugin" value="1"/>
                         <input type="submit" class="button-primary" value="<?php _e('Start', 'grep-github-contributors'); ?>"/>
@@ -414,12 +414,18 @@ class GrepGithubContributors_OptionsManager {
                 if ($optionMetaData != null) {
                     foreach ($optionMetaData as $aOptionKey => $aOptionMeta) {
                         if (!isset($aOptionMeta[2]))
-                            $aOptionMeta[2] = '';
+                            $aOptionMeta[2] = null;
+
+                        if (!isset($aOptionMeta[3]))
+                            $aOptionMeta[3] = null;
+
+                        if ($aOptionMeta[3] === 'hidden')
+                            continue;
                         ?>
                             <tr valign="top">
                                 <th scope="row"><p><label for="<?php echo $aOptionKey ?>"><?php echo $aOptionMeta[0]; ?></label></p></th>
                                 <td>
-                                <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey)); ?>
+                                <?php $this->createFormControl($aOptionKey, $aOptionMeta[2], $this->getOption($aOptionKey), $aOptionMeta[3]); ?>
                             </tr>
                         <?php
                     }
@@ -501,7 +507,7 @@ class GrepGithubContributors_OptionsManager {
      * @param  $savedOptionValue string current value for $aOptionKey
      * @return void
      */
-    protected function createFormControl($aOptionKey, $aOptionMeta, $savedOptionValue) {
+    protected function createFormControl($aOptionKey, $aOptionMeta, $savedOptionValue, $type = 'text') {
         if (is_array($aOptionMeta) && count($aOptionMeta) >= 2) { // Drop-down list
             $choices = array_slice($aOptionMeta, 1);
             ?>
@@ -520,7 +526,7 @@ class GrepGithubContributors_OptionsManager {
         }
         else { // Simple input field
             ?>
-            <p><input type="text" name="<?php echo $aOptionKey ?>" id="<?php echo $aOptionKey ?>"
+            <p><input type="<?php echo $type; ?>" name="<?php echo $aOptionKey ?>" id="<?php echo $aOptionKey ?>"
                       value="<?php echo esc_attr($savedOptionValue) ?>" size="50"/></p>
             <?php
 
