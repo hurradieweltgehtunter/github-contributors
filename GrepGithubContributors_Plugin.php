@@ -288,7 +288,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     $insert = 0;
     $update = 0;
-    $count = 0;
+
     // get user details
     foreach($members as $member) {
       $user = $this->getMemberDetails($member['login']);
@@ -316,11 +316,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         if (false !== $feed) {
           update_post_meta( $id, 'feed', $feed);
         }
-      }
-      $count++;
-
-      if($count > 10) {
-        break;
       }
     }
 
