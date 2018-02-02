@@ -90,6 +90,14 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     protected function otherUninstall() {
       foreach($this->getOptionMetaData() as $key => $option);
         $this->deleteOption( $key );
+
+      global $wpdb;
+      // delete all posts by post type.
+      $sql = 'DELETE `posts`, `pm`
+          FROM `' . $wpdb->prefix . 'posts` AS `posts` 
+          LEFT JOIN `' . $wpdb->prefix . 'postmeta` AS `pm` ON `pm`.`post_id` = `posts`.`ID`
+          WHERE `posts`.`post_type` = \'contributor\'';
+      $result = $wpdb->query($sql);
     }
 
 
