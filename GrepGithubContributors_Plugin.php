@@ -445,7 +445,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
               $response = $this->client->getHttpClient()->get($url);
               $commit     = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
-              $text = '<li class="repo-push">' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">' . $username . ' pushed to repository ' . $e['repo']['name'] . '</a></li>';
+              $text .= '<li class="repo-push">' . $date . ' <a href="' . $commit['html_url'] . '" target="blank">' . $username . ' pushed to repository ' . $e['repo']['name'] . '</a></li>';
             }
             break;
 
@@ -454,11 +454,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             $response = $this->client->getHttpClient()->get($url);
             $entity     = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
-            $text = '<li class="create-' . $e['payload']['ref_type'] . '">' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">' . $username . ' created a ' . $e['payload']['ref_type'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="create-' . $e['payload']['ref_type'] . '">' . $date . ' <a href="' . $entity['html_url'] . '" target="blank">' . $username . ' created a ' . $e['payload']['ref_type'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'IssueCommentEvent':
-            $text = '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' commented on issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' commented on issue #' . $e['payload']['issue']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'IssuesEvent':
@@ -470,32 +470,32 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
               case 'reopened':
                 $class = 'reopened';
               default:
-                $text = '<li class="issue-' . $class . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
+                $text .= '<li class="issue-' . $class . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
                 break;
             }
 
             break;
 
           case 'CommitCommentEvent':
-            $text = '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented on a commit in repository ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented on a commit in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'PullRequestEvent':
-            $text = '<li class="pull-request">' . $date . ' <a href="' . $e['payload']['pull_request']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' pull request #' . $e['payload']['pull_request']['number'] . ' "' . $e['payload']['pull_request']['title'] . '" in ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="pull-request">' . $date . ' <a href="' . $e['payload']['pull_request']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' pull request #' . $e['payload']['pull_request']['number'] . ' "' . $e['payload']['pull_request']['title'] . '" in ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'WatchEvent':
-            $text = '<li class="star">' . $date . ' <a href="https://github.com/' . $e['repo']['name'] . '" target="blank">' . $username . ' starred repository ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="star">' . $date . ' <a href="https://github.com/' . $e['repo']['name'] . '" target="blank">' . $username . ' starred repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'ForkEvent':
             // User forked a repo
-            $text = '<li class="repo-forked">' . $date . ' <a href="' . $e['payload']['forkee']['html_url'] . '" target="blank">' . $username . ' forked repository ' . $e['repo']['name'] . ' into ' . $e['payload']['forkee']['name'] . '</a></li>';
+            $text .= '<li class="repo-forked">' . $date . ' <a href="' . $e['payload']['forkee']['html_url'] . '" target="blank">' . $username . ' forked repository ' . $e['repo']['name'] . ' into ' . $e['payload']['forkee']['name'] . '</a></li>';
             break;
 
           case 'PullRequestReviewCommentEvent':
             // User commented on a pull request
-            $text = '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented a diff in pull request #' . $e['payload']['pull_request']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="comment-discussion">' . $date . ' <a href="' . $e['payload']['comment']['html_url'] . '" target="blank">' . $username . ' commented a diff in pull request #' . $e['payload']['pull_request']['number'] . ' in ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'DeleteEvent':
@@ -503,7 +503,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             break;
 
           case 'ReleaseEvent':
-            $text = '<li class="release">' . $date . ' <a href="' . $e['payload']['release']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' release ' . $e['payload']['release']['tag_name'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
+            $text .= '<li class="release">' . $date . ' <a href="' . $e['payload']['release']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' release ' . $e['payload']['release']['tag_name'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           default:
