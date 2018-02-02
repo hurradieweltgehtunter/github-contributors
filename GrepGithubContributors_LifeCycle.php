@@ -41,9 +41,6 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
 
         // To avoid running install() more then once
         $this->markAsInstalled();
-
-        // forward to settingspage
-        wp_redirect(admin_url('plugins.php?page=GrepGithubContributors_PluginSettings'));
     }
 
     public function uninstall() {
@@ -65,10 +62,6 @@ class GrepGithubContributors_LifeCycle extends GrepGithubContributors_InstallInd
      * @return void
      */
     public function activate() {
-        // Add Options
-        $this->addOption('current-action', 'idle');
-        $this->addOption('log-duration', '5');
-
         flush_rewrite_rules();
     }
 
