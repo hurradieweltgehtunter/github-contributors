@@ -462,6 +462,7 @@ class GrepGithubContributors_OptionsManager {
             <?php endif; ?>
 
             <h2>Log</h2>
+            <p>current time: <?php date('d.m.Y H:i'); ?></p>
             <table  class="plugin-options-table">
                 <tr>
                     <th>Date</th>
