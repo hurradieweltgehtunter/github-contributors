@@ -491,17 +491,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             break;
 
           case 'IssuesEvent':
-            switch($e['payload']['action']) {
-              case 'opened':
-                $class = 'opened';
-              case 'closed':
-                $class = 'closed';
-              case 'reopened':
-                $class = 'reopened';
-              default:
-                $text .= '<li class="issue-' . $class . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
-                break;
-            }
+              $text .= '<li class="issue-' . $e['payload']['action'] . '">' . $date . ' <a href="' . $e['payload']['issue']['html_url'] . '" target="blank">' . $username . ' ' . $e['payload']['action'] . ' issue #' . $e['payload']['issue']['number'] . ': ' . $e['payload']['issue']['title'] . ' in repository ' . $e['repo']['name'] . '</a></li>';
             break;
 
           case 'CommitCommentEvent':
