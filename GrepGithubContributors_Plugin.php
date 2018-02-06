@@ -298,7 +298,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     // get user details
     foreach($members as $member) {
       $user = $this->getMemberDetails($member['login']);
-      print_r($user);
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
       // validate data
