@@ -327,6 +327,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     $this->log('done inserting users|inserted:' . $insert . '|updated:' . $update);
 
+    $this->updateOption('current-action', 'idle');
+    
     //run initial fetch jobs
     if( $this->getOption('last_fetched') == 0) {
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
@@ -345,7 +347,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->updateOption('last_fetched', time());
     $end = microtime(true);
     $this->log('BaseJob done in ' . ($end - $start) . ' seconds');
-    $this->updateOption('current-action', 'idle');
+    
   }
 
   public function getMemberDetails($username) {
@@ -417,6 +419,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchUsersActivities() {
+    // some other plugin job is running
+    if ($this->getOption('current-action') !== 'idle') {
+      $this->log('Plugin not idling - aborting. current action: ' . $this->getOption('current-action'));
+      wp_die();
+    }
+
     $this->updateOption('current-action', 'get User Activities');
     $this->log('starting userActivity run');
     $args = array(
@@ -534,14 +542,12 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             $rest[] = $e;
             break;
         }
-
-        $content .= $text;
       } catch (Exception $e) {
 
       }
     }
 
-    $content .= '</ul>';
+    $content .= $text . '</ul>';
     // do sth. with $rest = uncatched events
 
     return $content;
