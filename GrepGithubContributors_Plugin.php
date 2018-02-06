@@ -302,8 +302,13 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       $e = get_page_by_title( $member['login'], 'OBJECT', 'contributor' );
 
       // validate data
-      if(count($user['blog']) > 1 && substr($user['blog'], -1) !== '/')
-        $user['blog'] = $user['blog'] . '/';
+      if(count($user['blog']) > 1) {
+        if (substr($user['blog'], -1) !== '/')
+          $user['blog'] = $user['blog'] . '/';
+
+        if(substr($user['blog'], 0, 7) !== 'http://' && substr($user['blog'], 0, 8) !== 'https://')
+          $user['blog'] = 'http://' . $user['blog'];
+      }
 
       if (null === $e) {
         // contributor is not in DB -> insert
@@ -328,7 +333,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->log('done inserting users|inserted:' . $insert . '|updated:' . $update);
 
     $this->updateOption('current-action', 'idle');
-    
+
     //run initial fetch jobs
     if( $this->getOption('last_fetched') == 0) {
       if (!wp_next_scheduled( 'grep-github-contributors-get-member-activity' ) ) {
@@ -419,12 +424,6 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   }
 
   public function fetchUsersActivities() {
-    // some other plugin job is running
-    if ($this->getOption('current-action') !== 'idle') {
-      $this->log('Plugin not idling - aborting. current action: ' . $this->getOption('current-action'));
-      wp_die();
-    }
-
     $this->updateOption('current-action', 'get User Activities');
     $this->log('starting userActivity run');
     $args = array(
