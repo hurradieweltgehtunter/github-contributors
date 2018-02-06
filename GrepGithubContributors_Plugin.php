@@ -270,6 +270,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     // Fetch Member list from github
     $members = $this->client->api('organizations')->members()->all($this->getOption('github-organization'));
     $pagination = ResponseMediator::getPagination($this->client->getLastResponse());
+    $count = 0;
 
     while(isset($pagination['next'])) {
       $page = substr($pagination['next'], strpos($pagination['next'], 'page=') + 5);
@@ -282,6 +283,11 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       $temp = array_merge($members, $delta);
       $members = $temp;
+
+      $count++;
+
+      if ($count > 2)
+        break;
     }
 
     $this->log('found ' . count($members) . ' members');
