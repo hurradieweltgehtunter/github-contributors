@@ -458,9 +458,9 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $response = $this->client->getHttpClient()->get('/users/' . $username . '/events/public');
     $events   = Github\HttpClient\Message\ResponseMediator::getContent($response);
 
-    $content = '';
+    $content = '<ul>';
     $rest = array();
-    $text = '<ul>';
+    $text = '';
 
     foreach($events as $key=>$e) {
       $date = date('Y-m-d', strtotime($e['created_at'])) . ': ';
@@ -545,7 +545,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       }
     }
 
-    $text .= '</ul>';
+    $content .= '</ul>';
     // do sth. with $rest = uncatched events
 
     return $content;
