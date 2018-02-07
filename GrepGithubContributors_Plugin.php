@@ -150,6 +150,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         add_action( 'init', array($this, 'registerPostType') );
 
+        // Add custom post status for alumni page
+        add_action( 'post_submitbox_misc_actions', array($this, 'addAlumniStatusToDropdown'));
+
+
         // Add Actions & Filters
         // http://plugin.michael-simpson.com/?page_id=37
 
@@ -171,7 +175,17 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
         // Register AJAX hooks
         // http://plugin.michael-simpson.com/?page_id=41
+    }
 
+    public function addAlumniStatusToDropdown($post)
+    {
+      ?>
+      <script>
+      jQuery(document).ready(function($){
+        $("select#post_status").append("<option value=\"alumni\" <?php selected('alumni', $post->post_status); ?>>Alumni</option>");
+      });
+      </script>
+      <?php
     }
 
     public function registerPostType() {
@@ -224,6 +238,16 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
       // Registering your Custom Post Type
       register_post_type( 'contributor', $args );
+
+      //Register alumni post status
+      register_post_status( 'alumni', array(
+        'label' => 'Alumni',
+        'public' => true,
+        'private' => false,
+        'show_in_admin_al_list' => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Alumni <span class="count">(%s)</span>', 'Alumni <span class="count">(%s)</span>' ),
+      ));
   }
 
   public function log($message) {
