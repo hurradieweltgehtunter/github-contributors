@@ -245,8 +245,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       register_post_status( 'alumni', array(
         'label' => 'Alumni',
         'public' => true,
-        'private' => false,
-        'show_in_admin_al_list' => true,
+        'private' => true,
+        'show_in_admin_all_list' => true,
         'show_in_admin_status_list' => true,
         'label_count'               => _n_noop( 'Alumni <span class="count">(%s)</span>', 'Alumni <span class="count">(%s)</span>' ),
       ));
@@ -400,7 +400,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
         'last_feed_fetch' => 0,
         'feedposts' => '',
         'oc-index' => 0,
-        'nc-index' => 0
+        'nc-index' => 0,
+        'last_oc_activity' => 0
       )
     ));
   }
@@ -447,7 +448,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->log('starting userActivity run');
     $args = array(
       'post_type' => 'contributor',
-      'post_status' => 'any',
+      'post_status' => array('publish', 'draft', 'alumni'),
       'posts_per_page' => 10,
       'meta_query' => array(
         array(
@@ -463,16 +464,37 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       while ( $the_query->have_posts() ) {
         $the_query->the_post();
         $githubActivity = $this->fetchUserActivities(get_the_title());
+        $post_status = $this->calcUserStats(get_the_ID(), $githubActivity['activities']);
 
         $user = array(
           'ID'           => get_the_ID(),
-          'post_content' => $githubActivity,
-          'post_status'  => $this->calcUserStats(get_the_ID(), $githubActivity)
+          'post_content' => $githubActivity['activities']
         );
-        
+
+        if ((time() - (86400 * 30 * 6)) > date('U', strtotime($githubActivity['last_oc_activity']))) { // users last oc activity is older than 6 months
+          if (get_post_status() === 'publish') { // user was listed as active contributor
+            $user['post_status'] = 'alumni'; // make him an alumni
+          } else {
+            $user['post_status'] = $post_status;
+          }
+        } else { // users last oc activity is younger than 6 months
+          if (get_post_status() === 'alumni') { // User was an alumni and became active again
+            if ( $post_status === 'draft' || $post_status === 'publish') { // user seems to be oc relevant - draft him
+              $post_status = 'draft';
+            } else { // trash
+              $user['post_status'] = $post_status;
+            }
+          } else {
+            $user['post_status'] = $post_status;
+          }
+        }
+
         wp_update_post( $user );
         update_post_meta( get_the_ID(), 'last_activity_fetch', time());
-        
+        if ( $githubActivity['last_oc_activity'] > 0) {
+          update_post_meta( get_the_ID(), 'last_oc_activity', $githubActivity['last_oc_activity']);
+        }
+
         $this->log('fetched activities for ' . get_the_title());
       }
       wp_reset_postdata();
@@ -494,6 +516,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $content = '<ul>';
     $rest = array();
     $text = '';
+    $last_oc_activity = 0;
 
     foreach($events as $key=>$e) {
       $date = date('Y-m-d', strtotime($e['created_at'])) . ': ';
@@ -561,6 +584,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
             $rest[] = $e;
             break;
         }
+
+        if (strpos(strtolower($text), 'owncloud') !== false) {
+          $last_oc_activity = $e['created_at'];
+        }
       } catch (Exception $e) {
 
       }
@@ -569,7 +596,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $content .= $text . '</ul>';
     // do sth. with $rest = uncatched events
 
-    return $content;
+    return array('activities' => $content, 'last_oc_activity' => $last_oc_activity);
   }
 
   protected function calcUserStats($postId, $githubActivity) {
@@ -582,7 +609,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     update_post_meta( $postId, 'oc-index', $oc_index);
     update_post_meta( $postId, 'nc-index', $nc_index);
 
-    if ($nc_index > 50) {
+    if ($nc_index > 14) {
       return 'trash';
     } else {
       if ($nc_index > $oc_index) {
