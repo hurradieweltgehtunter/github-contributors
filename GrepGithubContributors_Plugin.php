@@ -9,6 +9,8 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     function __construct() {
       $this->client = new \Github\Client();
       $this->client->authenticate($this->getOption('github-client-id'), $this->getOption('github-client-secret'), Github\Client::AUTH_URL_CLIENT_ID);
+
+      $this->default_socket_timeout = ini_get('default_socket_timeout');
     }
 
     /**
@@ -626,7 +628,10 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
   */
   public function feedSearch($url) {
     $start = microtime(true);
+    ini_set('default_socket_timeout', 5);
     $raw = @file_get_contents($url);
+    ini_set('default_socket_timeout', $this->default_socket_timeout);
+    
     if ( false !== $raw) {
       if($html = @DOMDocument::loadHTML($raw)) { // this is really slow, better ways?
 
