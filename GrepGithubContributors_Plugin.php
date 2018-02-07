@@ -179,6 +179,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     public function addAlumniStatusToDropdown($post)
     {
+      if (get_post_type() === 'contributor') {
       ?>
       <script>
       jQuery(document).ready(function($){
@@ -186,6 +187,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
       });
       </script>
       <?php
+      }
     }
 
     public function registerPostType() {
