@@ -362,7 +362,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     return wp_insert_post(array(
       'post_excerpt' => $user['bio'] . ' ', // add space as excerpt must not be empty in wordpress
       'post_title' => $user['login'],
-      'post_status' => 'publish',
+      'post_status' => 'draft',
       'post_type' => 'contributor',
       'comment_status' => 'closed',
       'meta_input' => array(
@@ -427,6 +427,7 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $this->log('starting userActivity run');
     $args = array(
       'post_type' => 'contributor',
+      'post_status' => 'any',
       'posts_per_page' => 10,
       'meta_query' => array(
         array(
@@ -439,20 +440,20 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
     $the_query = new WP_Query( $args );
 
     if ( $the_query->have_posts() ) {
-
       while ( $the_query->have_posts() ) {
         $the_query->the_post();
         $githubActivity = $this->fetchUserActivities(get_the_title());
 
         $user = array(
           'ID'           => get_the_ID(),
-          'post_content' => $githubActivity
+          'post_content' => $githubActivity,
+          'post_status'  => $this->calcUserStats(get_the_ID(), $githubActivity)
         );
-        $this->log('fetched activities for ' . get_the_title());
+        
         wp_update_post( $user );
         update_post_meta( get_the_ID(), 'last_activity_fetch', time());
-
-        $this->calcUserStats(get_the_ID(), $githubActivity);
+        
+        $this->log('fetched activities for ' . get_the_title());
       }
       wp_reset_postdata();
 
@@ -560,6 +561,16 @@ class GrepGithubContributors_Plugin extends GrepGithubContributors_LifeCycle {
 
     update_post_meta( $postId, 'oc-index', $oc_index);
     update_post_meta( $postId, 'nc-index', $nc_index);
+
+    if ($nc_index > 50) {
+      return 'trash';
+    } else {
+      if ($nc_index > $oc_index) {
+        return 'draft';
+      } else {
+        return 'publish';
+      }
+    }
   }
 
 
